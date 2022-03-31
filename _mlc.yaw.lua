@@ -904,9 +904,6 @@ client.set_event_callback(
             end
 
         
-            if ui.get(key3) then
-                renderer.text(center_x, center_y + 57 + offset, 253, 162, 180, pulse, "-", nil, "FORCE ROLL ( KEY )")
-            end
             local header = gradient_text(255, 255, 255, 255, r4, g4, b4, 255, "_MLC.YAW")
             renderer.text(center_x, center_y + 35, 255, 255, 255, 255, "-", nil, header)
             --renderer.text(center_x + 20, center_y + 35, r4, g4, b4, 255, "-", nil, ".YAW")
@@ -930,7 +927,7 @@ client.set_event_callback(
                 else if fake_angle == true then
                     renderer.text(center_x, center_y + 43 + animations.offset, 64, 224, 208, 255, "-", nil, "FAKE ANGLE")
                     else if  is_rolling == true then
-                        renderer.text(center_x, center_y + 43 + animations.offset, 253, 162, 180, 255, "-", nil, "FORCE ROLL")
+                        renderer.text(center_x, center_y + 43 + animations.offset, 253, 162, 180, 255, "-", nil, ui.get(key3) and "FORCE ROLL (KEY)" or "FORCE ROLL")
                         else if Jittering == true then
                             renderer.text(center_x, center_y + 43 + animations.offset, 184, 187, 230, 255, "-", nil, antiaim_state)
                             else if Jittering == false and fake_angle == false and is_rolling == false then
