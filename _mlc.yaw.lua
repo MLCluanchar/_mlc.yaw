@@ -235,7 +235,6 @@ local function velocity()
     local velocity_x, velocity_y = entity_get_prop(me, "m_vecVelocity")
     return math.sqrt(velocity_x ^ 2 + velocity_y ^ 2)
 end
-local antiaim_enable = ui.new_checkbox("AA","Anti-aimbot angles","Enable Jitter if Not Rolling", false)
 ui.set_visible(key3, false)
 ui.set_visible(velocity_slider, false)
 ui.set_visible(stamina_slider, false)
@@ -964,7 +963,7 @@ client.set_event_callback(
          --   renderer.text(center_x, center_y + 90, 253, 162, 180, 255, "+", nil, hit_bind())
         --    renderer.text(center_x, center_y + 110, 253, 162, 180, 255, "+", nil, is_on_ladder)
             renderer.text(center_x, center_y + 130, 253, 162, 180, 255, "+", nil, "Is Rolling:")
-            renderer.text(center_x + 100, center_y + 130, 253, 162, 180, 255, "+", nil, "123")
+            renderer.text(center_x + 100, center_y + 130, 253, 162, 180, 255, "+", nil, is_rolling)
         end
     end
 end
