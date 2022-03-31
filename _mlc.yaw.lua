@@ -155,7 +155,7 @@ local lua_log = function(...) --inspired by sapphyrus' multicolorlog
     client.color_log(217, 217, 217, " ") -- this is needed to end the line
 end
 
-lua_log("欢迎使用_roll, Update Version: 2022/2/24")
+lua_log("欢迎使用_roll, Update Version: 2022/3/31")
 lua_log("discord:https://discord.gg/GDy32vshVG")
 lua_log("Set Velocity Triggers to 80 if you are using Auto/AWP, Load Roll Preset is suggested")
 
@@ -896,8 +896,9 @@ client.set_event_callback(
                     rr, gr, br = 64, 224, 208
                     else if Jittering == true then
                         rr, gr, br = 184, 187, 255
-                    else
-                        rr, gr, br = 255, 255, 255
+                        else if Jittering == false and fake_angle == false and is_rolling == false then
+                            rr, gr, br = 255, 255, 255
+                        end
                     end
                 end
             end
@@ -932,8 +933,9 @@ client.set_event_callback(
                         renderer.text(center_x, center_y + 43 + animations.offset, 253, 162, 180, 255, "-", nil, "FORCE ROLL")
                         else if Jittering == true then
                             renderer.text(center_x, center_y + 43 + animations.offset, 184, 187, 230, 255, "-", nil, antiaim_state)
-                        else
-                            renderer.text(center_x, center_y + 43 + animations.offset, 255, 255, 255, 255, "-", nil, "WAITING...")
+                            else if Jittering == false and fake_angle == false and is_rolling == false then
+                                renderer.text(center_x, center_y + 43 + animations.offset, 255, 255, 255, 255, "-", nil, "WAITING...")
+                            end
                         end
                     end
                 end
