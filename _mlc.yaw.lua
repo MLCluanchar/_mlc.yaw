@@ -804,7 +804,10 @@ local ani = {
     baim = 0,
     tp = 0,
     alpha_fakeangle = 0,
-    charged = 0
+    charged = 0,
+    -----------
+    manual_lef = 0,
+    manual_right = 0,
 }
 local alpha = 0
 local offset = 0
@@ -1166,11 +1169,11 @@ client.set_event_callback("setup_command", function(e)
         ui.set(slider_roll, -50)
     else
         ui.set(bodyyaw[2], 137)
-        ui.set(slider_roll, 50)
     end
 
     if direction == 2 then
         ui.set(bodyyaw[2], -180)
+        ui.set(slider_roll, 50)
     else
         ui.set(bodyyaw[2], 137)
     end
@@ -1182,7 +1185,7 @@ client.set_event_callback("paint", function()
     aa_setup()
     menu_callback(true, true)
     bind_system:update()
-
+    
     local me = entity.get_local_player()
     
     if not entity.is_alive(me) or not ui.get(enabled) then
@@ -1199,13 +1202,21 @@ client.set_event_callback("paint", function()
         local distance = (w/2) / 210 * ui.get(indicator_dist)
         local alpha = math.floor(math.sin(realtime * 4) * (a/2-1) + a/2) or a
         -- ⯇ ⯈ ⯅ ⯆
-
-        renderer.text(w/2 - distance, h / 2 - 1, r1, g1, b1, a1, "+c", 0, "❮")
-        renderer.text(w/2 + distance, h / 2 - 1, r1, g1, b1, a1, "+c", 0, "❯")
-        renderer.text(w/2, h / 2 + distance, r1, g1, b1, a1, "+c", 0, "")
         
-        if m_state == 1 then renderer.text(w/2 - distance, h / 2 - 1, r, g, b, a, "+c", 0, "❮") end
-        if m_state == 2 then renderer.text(w/2 + distance, h / 2 - 1, r, g, b, a, "+c", 0, "❯") end
+        if m_state == 1 then
+            ani.manual_lef = lerp(ani.manual_lef,40,globals.frametime() * 6)
+            renderer.text(w/2 - distance - ani.manual_lef, h / 2 - 1, r, g, b, a, "+c", 0, "❮")
+            else
+            ani.manual_lef = lerp(ani.manual_lef,0,globals.frametime() * 6)
+            renderer.text(w/2 - distance - ani.manual_lef, h / 2 - 1, r, g, b, a, "+c", 0, "❮")
+        end        
+        if m_state == 2 then 
+            ani.manual_right = lerp(ani.manual_right,40,globals.frametime() * 6)
+            renderer.text(w/2 + distance + ani.manual_right, h / 2 - 1, r, g, b, a, "+c", 0, "❯") 
+        else
+            ani.manual_right = lerp(ani.manual_right,0,globals.frametime() * 6)
+            renderer.text(w/2 + distance + ani.manual_right, h / 2 - 1, r, g, b, a, "+c", 0, "❯") 
+        end
         if m_state == 3 or m_state == 0 then renderer.text(w/2, h / 2 + distance, r, g, b, a, "+c", 0, "") end
     end
 end)
