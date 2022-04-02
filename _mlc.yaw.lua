@@ -184,6 +184,7 @@ local references = {
     osaa, osaa_hkey = ui.reference("AA", "Other", "On shot anti-aim"),
     mindmg = ui.reference("RAGE", "Aimbot", "Minimum damage"),
     fba_key = ui.reference("RAGE", "Other", "Force body aim"),
+
     fsp_key = ui.reference("RAGE", "Aimbot", "Force safe point"),
     ap = ui.reference("RAGE", "Other", "Delay shot"),
     sw,
@@ -692,15 +693,7 @@ local vars = {
 client.set_event_callback('setup_command', function(c)
     c.chokedcommands = vars.chocking
 end)
-local function antiaim_yaw_jitter(a,b)
-    if vars.chocking ~= 0 then return end
-    if not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then return end
-    if globals.tickcount() - vars.y_vars > 1  then
-        vars.y_reversed = vars.y_reversed == 1 and 0 or 1
-        vars.y_vars = globals.tickcount()
-    end
-    return vars.y_reversed >= 1 and a or b
-end
+
 local fake_yaw = 0
 local status
 
@@ -801,10 +794,14 @@ local ani = {
     hide = 0,
     hide_offset = 0,
     hide_offset_exp = 0,
+    baim_offset = 0,
+    baim_offset_exp = 0,
+    safe = 0,
+    safe_offset = 0,
     baim = 0,
-    tp = 0,
     alpha_fakeangle = 0,
     charged = 0,
+    
     -----------
     manual_lef = 0,
     manual_right = 0,
@@ -875,23 +872,38 @@ client.set_event_callback(
             ani.hide_offset = math.floor(lerp(ani.hide_offset,0,globals.frametime() * 3.5))
             ani.hide_offset_exp = math.floor(lerp(ani.hide_offset_exp,0,globals.frametime() * 3.5))
         end
+
         if ani.hide_offset > 230 then ani.dt_offset = 230 end
         if ani.hide_offset_exp > 230 then ani.hide_offset_exp = 230 end
 
         if ui.get(references.fba_key) then
-            ani.tp = math.floor(lerp(ani.tp,255,globals.frametime() * 6))
-            ani.baim = math.floor(lerp(ani.tp,255,globals.frametime() * 6))
+            ani.baim = math.floor(lerp(ani.baim,255,globals.frametime() * 6))
+            ani.baim_offset = math.floor(lerp(ani.baim,255,globals.frametime() * 6))
+            ani.baim_offset_exp = math.floor(lerp(ani.baim,255,globals.frametime() * 6))
         else
-            ani.tp = math.floor(lerp(ani.tp,0,globals.frametime() * 6))
-            ani.baim = math.floor(lerp(ani.tp,255,globals.frametime() * 3.5))
+            ani.baim = math.floor(lerp(ani.baim,0,globals.frametime() * 6))
+            ani.baim_offset = math.floor(lerp(ani.baim,255,globals.frametime() * 3.5))
+            ani.baim_offset_exp = math.floor(lerp(ani.baim,0,globals.frametime() * 6))
         end
-        if ani.baim > 230 then ani.baim = 230 end
+    
+        if ani.baim_offset > 230 then ani.baim_offset = 230 end
+        if ani.baim_offset_exp > 230 then ani.baim_offset_exp  = 230 end
+
+        if ui.get(references.fsp_key) then
+            ani.safe = math.floor(lerp(ani.safe,255,globals.frametime() * 6))
+            ani.safe_offset = math.floor(lerp(ani.safe_offset,255,globals.frametime() * 6))
+        else
+            ani.safe = math.floor(lerp(ani.safe,0,globals.frametime() * 6))
+            ani.safe_offset = math.floor(lerp(ani.safe_offset,0,globals.frametime() * 6))
+        end
+
+        if ani.safe_offset > 230 then ani.safe_offset = 230 end
+
         if anti_aim.get_double_tap() then
             ani.charged = math.floor(lerp(ani.charged,255,globals.frametime() * 6))
         else
             ani.charged = math.floor(lerp(ani.charged,0,globals.frametime() * 6))
         end
-
         if alpha < 1 then alpha = 0 end
         if alpha > 255 then alpha = 255 end
         teleport()
@@ -1000,9 +1012,11 @@ client.set_event_callback(
                 --renderer.text(center_x + 32, center_y + 64, 255, 255, 255, ui.get(ref['fs'][2]) and 255 or 100, "-",nil, "FS")
                 --renderer.text(center_x, center_y + 64, 253, 162, 180, 255, "-", nil, "FORCE ROLL")
             end
+            print(ani.safe)
             renderer.text(center_x + 30 - ani.dt_offset / 7.67, center_y + 50 + ani.offset, 255 - ani.charged, 255, 255 - ani.charged, ani.dt, "-",nil, "DT")
             renderer.text(center_x + ani.dt_offset_exp / 21 + 32 - ani.hide_offset / 7.67, center_y + 50 + ani.offset, 255, 255, 255, ani.hide, "-",nil, "HIDE")
-            renderer.text(center_x + 31 - ani.baim / 7.67 + ani.dt_offset_exp / 21 + ani.hide_offset_exp / 13, center_y + 50 + ani.offset, 255, 255, 255, ani.tp, "-",nil, "BAIM")
+            renderer.text(center_x + 31 - ani.baim_offset / 7.67 + ani.dt_offset_exp / 21 + ani.hide_offset_exp / 13, center_y + 50 + ani.offset, 255, 255, 255, ani.baim, "-",nil, "BAIM")
+            renderer.text(center_x + 31 - ani.safe_offset / 7.67 + ani.baim_offset_exp / 12 + ani.dt_offset_exp / 21 + ani.hide_offset_exp / 13, center_y + 50 + ani.offset, 255, 255, 255, ani.safe, "-",nil, "SP")
             if not ui.get(checkbox_hitchecker) and on_hit() < 0.9 and air_status() == 1 and not ui.get(key3) and
                 is_on_ladder
              then
@@ -1168,16 +1182,14 @@ client.set_event_callback("setup_command", function(e)
         ui.set(bodyyaw[2], 180)
         ui.set(slider_roll, -50)
     else
-        ui.set(bodyyaw[2], 137)
     end
 
     if direction == 2 then
         ui.set(bodyyaw[2], -180)
         ui.set(slider_roll, 50)
     else
-        ui.set(bodyyaw[2], 137)
     end
-
+    if manual_yaw[direction] == 0 then return end
     ui.set(yaw[2], manual_yaw[direction])
 end)
 
