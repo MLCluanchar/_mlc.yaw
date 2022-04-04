@@ -456,6 +456,7 @@ local ticks_user = ui.reference("misc", "settings", "sv_maxusrcmdprocessticks")
 local speed_slider = ui.new_slider("AA", "Anti-aimbot angles", "Fake Angle Speed Trigger", 0, 250, 10, true, " ")
 local fake_angle
 local num = 90
+local reverse_num = 180
 client.set_event_callback(
     "setup_command",
     function(cmd)
@@ -514,11 +515,14 @@ client.set_event_callback(
                 local Left = client.key_state(0x41)
                 local Right = client.key_state(0x44)
                 if Left == true then
-                    num = 90
+                    num = 70
+                    reverse_num = 180
                     else if Right == true then
-                        num = 270
+                        num = 240
+                        reverse_num = 180
                     end
                     num = num 
+                    reverse_num = reverse_num
                 end
                 ui.set(fakelag, 17)
                 local angles = {client.camera_angles()}
@@ -528,8 +532,7 @@ client.set_event_callback(
                     cmd.yaw = angles[2] + num
                     cmd.pitch = 80, angles[1]
                 else
-                    cmd.allow_send_packet = true
-                    cmd.yaw = angles[2] + 180
+                    cmd.yaw = angles[2] + reverse_num
                     cmd.pitch = 80, angles[1] - 80
                 end
         end
@@ -678,7 +681,22 @@ local function gradient_text(r1, g1, b1, a1, r2, g2, b2, a2, text)
 
 	return output
 end
-
+-------------------------Render LBY Circle---------------------
+local function draw_circle_3d(x, y, z, radius, degrees, start_at, r, g, b, a)
+	local accuracy = 10/10
+    local old = { x, y }
+	for rot=start_at, degrees+start_at, accuracy do
+		local rot_t = math.rad(rot)
+		local line_ = vector(radius * math.cos(rot_t) + x, radius * math.sin(rot_t) + y, z)
+        local current = { x, y }
+        current.x, current.y = renderer.world_to_screen(line_.x, line_.y, line_.z)
+		if current.x ~=nil and old.x ~= nil then
+			renderer.line(current.x, current.y, old.x, old.y, r, g, b, a)
+            --m_render_engine.render_glow_line(current.x, current.y, old.x, old.y, r, g, b, a, r, g, b, 10)
+		end
+		old.x, old.y = current.x, current.y
+	end
+end
 -------------------------Basic Anti Aim----------------------
 
 local vars = {
@@ -696,7 +714,6 @@ end)
 
 local fake_yaw = 0
 local status
-
 local function static()
     ui.set(references.yaw[2], 24)
     ui.set(references.yaw[1], "180")
@@ -708,10 +725,12 @@ local function static()
     TIME = globals_realtime() + 0.12
 end
 local function jitter()
+    local pulse_m = math.sin(math.abs((math.pi * -1) + (globals.curtime() * (1 / 0.35)) % (math.pi * 2))) * 59
+    if pulse_m > 58 then pulse_m = 0 end
+    ui.set(ref.aa.fyaw_limit, 2 + pulse_m)
 if globals_realtime() >= TIME then
     --ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
     ui.set(ref.aa.jitter[1], "Center")
-    ui.set(ref.aa.fyaw_limit, 58)
     ui.set(ref.aa.pitch, "Minimal")
     ui.set(ref.aa.yaw[1], "180")
     ui.set(references.body_yaw[1], "Jitter")
@@ -749,6 +768,11 @@ end
 client.set_event_callback('setup_command', function(cmd)
     -----------Moving overlap
     --send packets can be considered not using it
+    local local_player = entity_get_local_player( )
+    if ( not entity_is_alive( local_player ) ) then
+        return     
+    end
+    ---------------------------------------------
     if cmd.chokedcommands ~= 0 then return end
     if velocity() < 120 then return end
     if Jittering == false then return end
@@ -767,6 +791,11 @@ client.set_event_callback('setup_command', function(cmd)
 client.set_event_callback('setup_command', function(cmd)
     -----------Standing overlap
     --send packets can be considered not using it
+    local local_player = entity_get_local_player( )
+    if ( not entity_is_alive( local_player ) ) then
+        return     
+    end
+    ---------------------------------------------
     if cmd.chokedcommands ~= 0 then return end
     if velocity() > 120 then return end
     if Jittering == false then return end
@@ -819,6 +848,9 @@ local center_x, center_y = ss[1] / 2, ss[2] / 2
 client.set_event_callback(
     "paint",
     function(e)
+        local _, head_rot = entity.get_prop(entity.get_local_player(), "m_angAbsRotation");local _, fake_rot = entity.get_prop(entity.get_local_player(), "m_angEyeAngles");local lby_rot = entity.get_prop(entity.get_local_player(), "m_flLowerBodyYawTarget");local _, cam_rot = client.camera_angles()
+        local c3d = { degrees=50, start_at=head_rot, start_at2=fake_rot, start_at3=lby_rot }
+        local lp_pos = vector(entity.get_origin(entity.get_local_player()))
         speed = velocity()
         if velocity() > 30 and velocity() < 250  then
             ani.alpha = lerp(ani.alpha,255,globals.frametime() * 6)
@@ -1001,8 +1033,8 @@ client.set_event_callback(
                     end
                 end
             end
+            draw_circle_3d(lp_pos.x, lp_pos.y, lp_pos.z, 43+2*1, c3d.degrees, c3d.start_at2, rr, gr, br, 255)
             if fake_angle == true then
-                --renderer.text(center_x, center_y + 50 + offset, 64, 224, 208, 255, "-", nil, "FAKE ANGLE")
             else
                 --renderer.text(center_x, center_y + 50 + offset, 255, 255, 255, 100, "-", nil, "FAKE ANGLE")
             end
@@ -1012,11 +1044,13 @@ client.set_event_callback(
                 --renderer.text(center_x + 32, center_y + 64, 255, 255, 255, ui.get(ref['fs'][2]) and 255 or 100, "-",nil, "FS")
                 --renderer.text(center_x, center_y + 64, 253, 162, 180, 255, "-", nil, "FORCE ROLL")
             end
-            print(ani.safe)
+            local first_exp = ani.dt_offset_exp / 21
+            local second_exp = first_exp + ani.hide_offset_exp / 13
+            local third_exp = second_exp + ani.baim_offset_exp / 12
             renderer.text(center_x + 30 - ani.dt_offset / 7.67, center_y + 50 + ani.offset, 255 - ani.charged, 255, 255 - ani.charged, ani.dt, "-",nil, "DT")
-            renderer.text(center_x + ani.dt_offset_exp / 21 + 32 - ani.hide_offset / 7.67, center_y + 50 + ani.offset, 255, 255, 255, ani.hide, "-",nil, "HIDE")
-            renderer.text(center_x + 31 - ani.baim_offset / 7.67 + ani.dt_offset_exp / 21 + ani.hide_offset_exp / 13, center_y + 50 + ani.offset, 255, 255, 255, ani.baim, "-",nil, "BAIM")
-            renderer.text(center_x + 31 - ani.safe_offset / 7.67 + ani.baim_offset_exp / 12 + ani.dt_offset_exp / 21 + ani.hide_offset_exp / 13, center_y + 50 + ani.offset, 255, 255, 255, ani.safe, "-",nil, "SP")
+            renderer.text(center_x + 31 - ani.hide_offset / 7.67 + first_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.hide, "-",nil, "HIDE")
+            renderer.text(center_x + 31 - ani.baim_offset / 7.67 + second_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.baim, "-",nil, "BAIM")
+            renderer.text(center_x + 32 - ani.safe_offset / 7.67 + third_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.safe, "-",nil, "SP")
             if not ui.get(checkbox_hitchecker) and on_hit() < 0.9 and air_status() == 1 and not ui.get(key3) and
                 is_on_ladder
              then
