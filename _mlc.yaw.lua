@@ -1,14 +1,10 @@
 local bit_band = bit.band
-local antiaim_funcs = require 'gamesense/antiaim_funcs'
-local entity_get_local_player, entity_is_alive, entity_get_prop, entity_get_player_weapon =
-    entity.get_local_player,
-    entity.is_alive,
-    entity.get_prop,
-    entity.get_player_weapon
-    local ffi = require "ffi"
-    local vector = require("vector")
-    local ui_set = ui.set
-    local globals_tickcount, globals_realtime = globals.tickcount, globals.realtime
+local anti_aim = require 'gamesense/antiaim_funcs'
+
+local ffi = require "ffi"
+local vector = require("vector")
+local ui_set = ui.set
+local globals_tickcount, globals_realtime = globals.tickcount, globals.realtime
 -- Libraries
 
 local buttons_e = {
@@ -17,16 +13,10 @@ local buttons_e = {
     use = bit.lshift(1, 5)
 
 }
+local bit_band, bit_lshift, client_color_log, client_create_interface, client_delay_call, client_find_signature, client_key_state, client_reload_active_scripts, client_screen_size, client_set_event_callback, client_system_time, client_timestamp, client_unset_event_callback, database_read, database_write, entity_get_classname, entity_get_local_player, entity_get_origin, entity_get_player_name, entity_get_prop, entity_get_steam64, entity_is_alive, globals_framecount, globals_realtime, math_ceil, math_floor, math_max, math_min, panorama_loadstring, renderer_gradient, renderer_line, renderer_rectangle, table_concat, table_insert, table_remove, table_sort, ui_get, ui_is_menu_open, ui_mouse_position, ui_new_checkbox, ui_new_color_picker, ui_new_combobox, ui_new_slider, ui_set, ui_set_visible, setmetatable, pairs, error, globals_absoluteframetime, globals_curtime, globals_frametime, globals_maxplayers, globals_tickcount, globals_tickinterval, math_abs, type, pcall, renderer_circle_outline, renderer_load_rgba, renderer_measure_text, renderer_text, renderer_texture, tostring, ui_name, ui_new_button, ui_new_hotkey, ui_new_label, ui_new_listbox, ui_new_textbox, ui_reference, ui_set_callback, ui_update, unpack, tonumber = bit.band, bit.lshift, client.color_log, client.create_interface, client.delay_call, client.find_signature, client.key_state, client.reload_active_scripts, client.screen_size, client.set_event_callback, client.system_time, client.timestamp, client.unset_event_callback, database.read, database.write, entity.get_classname, entity.get_local_player, entity.get_origin, entity.get_player_name, entity.get_prop, entity.get_steam64, entity.is_alive, globals.framecount, globals.realtime, math.ceil, math.floor, math.max, math.min, panorama.loadstring, renderer.gradient, renderer.line, renderer.rectangle, table.concat, table.insert, table.remove, table.sort, ui.get, ui.is_menu_open, ui.mouse_position, ui.new_checkbox, ui.new_color_picker, ui.new_combobox, ui.new_slider, ui.set, ui.set_visible, setmetatable, pairs, error, globals.absoluteframetime, globals.curtime, globals.frametime, globals.maxplayers, globals.tickcount, globals.tickinterval, math.abs, type, pcall, renderer.circle_outline, renderer.load_rgba, renderer.measure_text, renderer.text, renderer.texture, tostring, ui.name, ui.new_button, ui.new_hotkey, ui.new_label, ui.new_listbox, ui.new_textbox, ui.reference, ui.set_callback, ui.update, unpack, tonumber
 local entity_get_local_player, entity_is_enemy, entity_get_all, entity_set_prop, entity_is_alive, entity_is_dormant, entity_get_player_name, entity_get_game_rules, entity_get_origin, entity_hitbox_position, entity_get_players, entity_get_prop = entity.get_local_player, entity.is_enemy,  entity.get_all, entity.set_prop, entity.is_alive, entity.is_dormant, entity.get_player_name, entity.get_game_rules, entity.get_origin, entity.hitbox_position, entity.get_players, entity.get_prop
 local math_cos, math_sin, math_rad, math_sqrt = math.cos, math.sin, math.rad, math.sqrt
-local function math_clamp(v, min, max)
-    if v < min then
-        v = min
-    elseif v > max then
-        v = max
-    end
-    return v
-end
+local ui_new_multiselect = ui.new_multiselect
 local function contains(tbl, val)
     for i = 1, #tbl do
         if tbl[i] == val then
@@ -35,14 +25,7 @@ local function contains(tbl, val)
     end
     return false
 end
-local function contains2(tbl, val)
-    for i = 1, #tbl do
-        if tbl[i] == val then
-            return true
-        end
-    end
-    return false
-end
+
 ui_reference = ui.reference
 local ref = {
     ["rage"] = {
@@ -222,27 +205,40 @@ local static_mode_combobox =
     "On Ladders",
     "Low Stamina",
     "On Key",
-    "< Speed Velocity"
+    "< Speed Velocity",
+    "Avoid Overlap"
 )
-local teleport_key = ui.new_hotkey("AA", "Other", "Teleport key")
-local indicators = ui.new_multiselect("AA", "Anti-aimbot angles", "Enable Indicators", "Status Netgraph", "Debug")
+local misc_combobox =
+    ui.new_multiselect(
+    "AA",
+    "Anti-aimbot angles",
+    "Misc",
+    "Debug Tools",
+    "Avoid Overlap"
+)
+local b = {
+    teleport_key = ui_new_hotkey("AA", "Other", "Teleport key"),
+    indicators = ui_new_multiselect("AA", "Anti-aimbot angles", "Enable Indicators", "Status Netgraph", "Debug"),
+    checkbox_hitchecker = ui_new_checkbox("AA", "Anti-aimbot angles", "Disable Roll when impacted", true),
+    velocity_slider = ui_new_slider("AA", "Anti-aimbot angles", "Roll Velocity Trigger", 0, 250, 120, true, " "),
+    stamina_slider = ui_new_slider("AA", "Anti-aimbot angles", "Stamina Recovery", 0, 80, 70, true, " "),
+    in_air_roll = ui_new_slider("AA","Anti-aimbot angles","Customized Roll in air",  -50, 50, 50, true, " ")
+}
+
 local key3 = ui.new_hotkey("AA", "Anti-aimbot angles", "Force Rolling Angle on Key (Speed Decrease)")
-local checkbox_hitchecker = ui.new_checkbox("AA", "Anti-aimbot angles", "Disable Roll when impacted", true)
-local velocity_slider = ui.new_slider("AA", "Anti-aimbot angles", "Roll Velocity Trigger", 0, 250, 120, true, " ")
-local stamina_slider = ui.new_slider("AA", "Anti-aimbot angles", "Stamina Recovery", 0, 80, 70, true, " ")
-local in_air_roll = ui.new_slider("AA","Anti-aimbot angles","Customized Roll in air",  -50, 50, 50, true, " ")
+
 local function velocity()
     local me = entity_get_local_player()
     local velocity_x, velocity_y = entity_get_prop(me, "m_vecVelocity")
     return math.sqrt(velocity_x ^ 2 + velocity_y ^ 2)
 end
-ui.set_visible(key3, false)
-ui.set_visible(velocity_slider, false)
-ui.set_visible(stamina_slider, false)
-ui.set_visible(checkbox_hitchecker, false)
-ui.set_visible(in_air_roll, false)
+
+ui.set_visible(b.velocity_slider, false)
+ui.set_visible(b.stamina_slider, false)
+ui.set_visible(b.checkbox_hitchecker, false)
+ui.set_visible(b.in_air_roll, false)
 ui.set_visible(references.roll[1], false)
-ui.set_visible(checkbox_hitchecker, false)
+ui.set_visible(b.checkbox_hitchecker, false)
 local TIME = 0
 
 -----------------Valve Sever Bypasser-----------------
@@ -278,10 +274,10 @@ end
 
 local function stamina_bind()
     if contains(ui.get(static_mode_combobox), "Low Stamina") then
-        ui.set_visible(stamina_slider, true)
-        return ui.get(stamina_slider)
+        ui.set_visible(b.stamina_slider, true)
+        return ui.get(b.stamina_slider)
     else
-        ui.set_visible(stamina_slider, false)
+        ui.set_visible(b.stamina_slider, false)
         return 0
     end
 end
@@ -294,19 +290,19 @@ end
 local function hit_bind()
     local hit_health = on_hit()
     if contains(ui.get(static_mode_combobox), "< Speed Velocity") then
-        ui.set_visible(velocity_slider, true)
-        ui.set_visible(checkbox_hitchecker, true)
-        if ui.get(checkbox_hitchecker) and hit_health <= 0.9 then
+        ui.set_visible(b.velocity_slider, true)
+        ui.set_visible(b.checkbox_hitchecker, true)
+        if ui.get(b.checkbox_hitchecker) and hit_health <= 0.9 then
             return 0
         else if is_on_ladder == 1 then
             return  0
         else
-            return ui.get(velocity_slider)
+            return ui.get(b.velocity_slider)
             end
         end
     end
-    ui.set_visible(velocity_slider, false)
-    ui.set_visible(checkbox_hitchecker, false)
+    ui.set_visible(b.velocity_slider, false)
+    ui.set_visible(b.checkbox_hitchecker, false)
     return 0
 end
 
@@ -356,12 +352,12 @@ end
 local function roll_bind()
     local roll_set = ui.get(slider_roll)
     if contains(ui.get(static_mode_combobox), "In Air") then
-        ui.set_visible(in_air_roll, true)
+        ui.set_visible(b.in_air_roll, true)
     else
-        ui.set_visible(in_air_roll, false)
+        ui.set_visible(b.in_air_roll, false)
     end
     if air_status() == 1 then
-        roll_set = ui.get(in_air_roll)
+        roll_set = ui.get(b.in_air_roll)
     else
         return ui.get(slider_roll)
     end
@@ -385,6 +381,7 @@ local function on_run_command(cmd)
     hide_keys()
     local speed = velocity()
     local recovery = stamina()
+    if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
     if air_status() == 0 and not ui.get(key3) and speed >= hit_bind() and recovery >= stamina_bind() and Ladder_status() == 0 then
         is_rolling = false
         return
@@ -398,7 +395,7 @@ local function on_run_command(cmd)
     hit_bind()
     local pUserCmd = g_pInput.vfptr.GetUserCmd(ffi.cast("uintptr_t", g_pInput), 0, cmd.command_number)
 
-    local my_weapon = entity_get_player_weapon(local_player)
+    local my_weapon = entity.get_player_weapon(local_player)
     local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
     local is_grenade =
         ({
@@ -435,14 +432,11 @@ local function on_run_command(cmd)
     if contains(ui.get(Exploit_mode_combobox), "Roll Angle") then
         pUserCmd.viewangles.roll = roll_bind()
     else end
-
-
-
 --    g_ForwardMove = pUserCmd.forwardmove
 --    g_SideMove = pUserCmd.sidemove
 --    g_pOldAngles = vector(pUserCmd.viewangles.pitch, pUserCmd.viewangles.yaw, pUserCmd.viewangles.roll)
 
-    if contains(ui.get(indicators), "Debug") then
+    if contains(ui.get(b.indicators), "Debug") then
 --        pUserCmd.forwardmove = math_clamp(new_forward, -450.0, 450.0)           not working properly
 --        pUserCmd.sidemove = math_clamp(new_side, -450.0, 450.0)
     end
@@ -450,8 +444,6 @@ local function on_run_command(cmd)
     -- your aa
 end
 --------------------Main Functions for fake angle--------------------
-local invert_key = ui.new_hotkey("aa", "fake lag", "Fake Angle Invert")
-local fakelag = ui.reference("aa", "fake lag", "limit") 
 local ticks_user = ui.reference("misc", "settings", "sv_maxusrcmdprocessticks")
 local speed_slider = ui.new_slider("AA", "Anti-aimbot angles", "Fake Angle Speed Trigger", 0, 250, 10, true, " ")
 local fake_angle
@@ -460,7 +452,7 @@ local reverse_num = 180
 client.set_event_callback(
     "setup_command",
     function(cmd)
-        ui.set(fakelag, 15)
+        ui.set(references.fake_lag_limit, 15)
         ui.set(ticks_user, 18)
         local speed = velocity()
         fake_angle = false
@@ -511,7 +503,6 @@ client.set_event_callback(
                     return
                 end
                 cmd.allow_send_packet = false
-                local nigger = ui.get(invert_key)
                 local Left = client.key_state(0x41)
                 local Right = client.key_state(0x44)
                 if Left == true then
@@ -524,7 +515,7 @@ client.set_event_callback(
                     num = num 
                     reverse_num = reverse_num
                 end
-                ui.set(fakelag, 17)
+                ui.set(references.fake_lag_limit, 17)
                 local angles = {client.camera_angles()}
                 fake_angle = true
                 if (cmd.chokedcommands % 2 == 0) then
@@ -551,23 +542,10 @@ end)
 
 ---------------------Polygens
 
-local bit_band, bit_lshift, client_color_log, client_create_interface, client_delay_call, client_find_signature, client_key_state, client_reload_active_scripts, client_screen_size, client_set_event_callback, client_system_time, client_timestamp, client_unset_event_callback, database_read, database_write, entity_get_classname, entity_get_local_player, entity_get_origin, entity_get_player_name, entity_get_prop, entity_get_steam64, entity_is_alive, globals_framecount, globals_realtime, math_ceil, math_floor, math_max, math_min, panorama_loadstring, renderer_gradient, renderer_line, renderer_rectangle, table_concat, table_insert, table_remove, table_sort, ui_get, ui_is_menu_open, ui_mouse_position, ui_new_checkbox, ui_new_color_picker, ui_new_combobox, ui_new_slider, ui_set, ui_set_visible, setmetatable, pairs, error, globals_absoluteframetime, globals_curtime, globals_frametime, globals_maxplayers, globals_tickcount, globals_tickinterval, math_abs, type, pcall, renderer_circle_outline, renderer_load_rgba, renderer_measure_text, renderer_text, renderer_texture, tostring, ui_name, ui_new_button, ui_new_hotkey, ui_new_label, ui_new_listbox, ui_new_textbox, ui_reference, ui_set_callback, ui_update, unpack, tonumber = bit.band, bit.lshift, client.color_log, client.create_interface, client.delay_call, client.find_signature, client.key_state, client.reload_active_scripts, client.screen_size, client.set_event_callback, client.system_time, client.timestamp, client.unset_event_callback, database.read, database.write, entity.get_classname, entity.get_local_player, entity.get_origin, entity.get_player_name, entity.get_prop, entity.get_steam64, entity.is_alive, globals.framecount, globals.realtime, math.ceil, math.floor, math.max, math.min, panorama.loadstring, renderer.gradient, renderer.line, renderer.rectangle, table.concat, table.insert, table.remove, table.sort, ui.get, ui.is_menu_open, ui.mouse_position, ui.new_checkbox, ui.new_color_picker, ui.new_combobox, ui.new_slider, ui.set, ui.set_visible, setmetatable, pairs, error, globals.absoluteframetime, globals.curtime, globals.frametime, globals.maxplayers, globals.tickcount, globals.tickinterval, math.abs, type, pcall, renderer.circle_outline, renderer.load_rgba, renderer.measure_text, renderer.text, renderer.texture, tostring, ui.name, ui.new_button, ui.new_hotkey, ui.new_label, ui.new_listbox, ui.new_textbox, ui.reference, ui.set_callback, ui.update, unpack, tonumber
 local renderer_circle = renderer.circle
-local ffi = require 'ffi'
 local vector = require 'vector'
-local images = require 'gamesense/images'
-local anti_aim = require 'gamesense/antiaim_funcs'
 
 local m_render_engine = (function()
-    local rr, gr, br = 255, 255, 255
-    if is_rolling == true then
-        rr, gr, br = 253, 162, 180
-        else if fake_angle == true then
-            rr, gr, br = 64, 224, 208
-        else
-            rr, gr, br = 255, 255, 255
-        end
-    end
 	local a = {}
 	local b = function(c, d, e, f, g, h, i, j, k)
 		renderer_rectangle(c + g, d, e - g * 2, g, h, i, j, k)
@@ -646,7 +624,7 @@ local box, key = ui.reference( 'Rage', 'Other', 'Quick peek assist' )
 -------------------Teleport function-------------------
 local is_tp
 function teleport()
-    local getstate = ui.get(teleport_key) and not ui.get(fakeducking) 
+    local getstate = ui.get(b.teleport_key) and not ui.get(fakeducking) 
     local is_tp = getstate
     ui.set(key, getstate and 'On hotkey' or 'On hotkey')
     ui.set(double_tap_key, getstate and 'Always on' or 'toggle')
@@ -709,32 +687,45 @@ local vars = {
     chocking = 0
 }
 client.set_event_callback('setup_command', function(c)
-    c.chokedcommands = vars.chocking
+    c.chokedcommands = vars.chocke
 end)
 
+local function antiaim_yaw_jitter(a,b)
+    if globals.tickcount() - vars.y_vars > 1  then
+        vars.y_reversed = vars.y_reversed == 1 and 0 or 1
+        vars.y_vars = globals.tickcount()
+    end
+    return vars.y_reversed >= 1 and a or b
+end
+
+local function yaw_abs_detection()
+    if references.body_yaw[2] > 0 then
+        return 15
+    else
+        return -15
+    end
+end
 local fake_yaw = 0
 local status
 local function static()
-    ui.set(references.yaw[2], 24)
     ui.set(references.yaw[1], "180")
-    ui.set(references.body_yaw[2], 137)
+    --ui.set(references.body_yaw[2], 137)
     ui.set(references.yaw_base, "At targets")
-    ui.set(references.body_yaw[1], "Static")
     ui.set(references.jitter[2], 0)
     ui.set(references.fake_limit, 58)
     TIME = globals_realtime() + 0.12
 end
 local function jitter()
-    local pulse_m = math.sin(math.abs((math.pi * -1) + (globals.curtime() * (1 / 0.35)) % (math.pi * 2))) * 59
-    if pulse_m > 58 then pulse_m = 0 end
-    ui.set(ref.aa.fyaw_limit, 2 + pulse_m)
+    local pulse_m = math.sin(math.abs((math.pi * -1) + (globals.curtime() * (1 / 0.35)) % (math.pi * 2))) * 60
+    if pulse_m > 59 then pulse_m = 0 end
+    ui.set(ref.aa.fyaw_limit, 60)
 if globals_realtime() >= TIME then
     --ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
     ui.set(ref.aa.jitter[1], "Center")
     ui.set(ref.aa.pitch, "Minimal")
     ui.set(ref.aa.yaw[1], "180")
     ui.set(references.body_yaw[1], "Jitter")
-    ui.set(ref.aa.jitter[2], 45)
+    ui.set(ref.aa.jitter[2], 29)
     ui.set(references.body_yaw[2], 0)
     ui.set(ref.aa.freestanding_body_yaw, false)
     TIME = globals_realtime() + 0.09
@@ -757,14 +748,6 @@ if not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then return end
     end
 end
 
-local function antiaim_yaw_jitter(a,b)
-
-    if globals.tickcount() - vars.y_vars > 1  then
-        vars.y_reversed = vars.y_reversed == 1 and 0 or 1
-        vars.y_vars = globals.tickcount()
-    end
-    return vars.y_reversed >= 1 and a or b
-end
 client.set_event_callback('setup_command', function(cmd)
     -----------Moving overlap
     --send packets can be considered not using it
@@ -779,10 +762,10 @@ client.set_event_callback('setup_command', function(cmd)
     if not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then return end
     if ui.get(references.jitter[2]) < 60 and anti_aim.get_overlap(rotation) > 0.77 then
         status = "FAKE YAW"
-        ui.set(references.yaw[2], antiaim_yaw_jitter(40,-40))
+        ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
     else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.77 then
         status = "FAKE YAW"
-        ui.set(references.yaw[2], antiaim_yaw_jitter(40,-40))
+        ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
     else status = "OVERLAPED"
         return end
     end
@@ -796,21 +779,92 @@ client.set_event_callback('setup_command', function(cmd)
         return     
     end
     ---------------------------------------------
-    if cmd.chokedcommands ~= 0 then return end
     if velocity() > 120 then return end
     if Jittering == false then return end
     if not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then return end
     if ui.get(references.jitter[2]) < 60 and anti_aim.get_overlap(rotation) > 0.63 then
         status = "FAKE YAW"
-        ui.set(references.yaw[2], antiaim_yaw_jitter(40,-40))
+        ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
     else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.84 then
         status = "FAKE YAW"
-        ui.set(references.yaw[2], antiaim_yaw_jitter(40,-40))
+        ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
     else status = "OVERLAPED"
         return end
 end
 end)
 
+local overlap = function(cmd)
+    local local_player = entity_get_local_player( )
+    if ( not entity_is_alive( local_player ) ) then
+        return     
+    end
+    if not is_rolling then return end 
+    if cmd.chokedcommands ~= 0 then return end
+    if contains(ui.get(misc_combobox), "Avoid Overlap") then
+        ui.set(references.body_yaw[1], "Static")
+        ui.set(references.body_yaw[2], antiaim_yaw_jitter(-60,60))
+        ui.set(references.yaw[2], antiaim_yaw_jitter(-10,10))
+        ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -50 or 50)
+        ui.set(b.in_air_roll, antiaim_yaw_jitter(-50,50))
+        else
+        ui.set(references.body_yaw[1], "Opposite")
+        ui.set(references.yaw[2], anti_aim.get_desync(1) and -5 or 5)
+        ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -50 or 50)
+    end
+end
+
+client.set_event_callback('setup_command', overlap)
+-------------------------Logging-----------------------------
+
+local function KaysFunction(A,B,C)
+    local d = (A-B) / A:dist(B)
+    local v = C - B
+    local t = v:dot(d) 
+    local P = B + d:scaled(t)
+    
+    return P:dist(C)
+end
+
+local function on_bullet_impact(e)
+	local local_player = entity.get_local_player()
+	local shooter = client.userid_to_entindex(e.userid)
+
+	if not entity.is_enemy(shooter) or not entity.is_alive(local_player) then
+		return
+	end
+
+    if not contains(ui.get(misc_combobox), "Debug Tools") then return end
+
+	local shot_start_pos 	= vector(entity.get_prop(shooter, "m_vecOrigin"))
+	shot_start_pos.z 		= shot_start_pos.z + entity.get_prop(shooter, "m_vecViewOffset[2]")
+	local eye_pos			= vector(client.eye_position())
+	local shot_end_pos 		= vector(e.x, e.y, e.z)
+	local closest			= KaysFunction(shot_start_pos, shot_end_pos, eye_pos)
+
+    local Overlap = math.floor(anti_aim.get_overlap(rotation) * 100)
+    local Desync = math.floor(anti_aim.get_desync(1))
+
+    local boolean_roll 
+    local boolean_fake
+    
+    if is_rolling then
+        boolean_roll = "true"
+    else
+        boolean_roll = "false"
+    end
+
+    if Jittering then
+        boolean_fake = "true"
+    else
+        boolean_fake = "false"
+    end
+
+	if closest < 32 then
+        lua_log("Detected Impact, Roll:"..boolean_roll..", Fake yaw:"..boolean_fake.. " Overlap:"..Overlap.."°, Desync: "..Desync.."")
+	end
+end
+
+client.set_event_callback('bullet_impact', on_bullet_impact)
 --------------Animation
 local ani = {
     alpha = 0,
@@ -834,10 +888,9 @@ local ani = {
     -----------
     manual_lef = 0,
     manual_right = 0,
+    -----------
+    LBY = 0
 }
-local alpha = 0
-local offset = 0
-local speed_offset = 0
 function lerp(start, vend, time)
 return start + (vend - start) * time end
 
@@ -848,6 +901,11 @@ local center_x, center_y = ss[1] / 2, ss[2] / 2
 client.set_event_callback(
     "paint",
     function(e)
+
+            local local_player = entity_get_local_player( )
+    if ( not entity_is_alive( local_player ) ) then
+        return     
+    end
         local _, head_rot = entity.get_prop(entity.get_local_player(), "m_angAbsRotation");local _, fake_rot = entity.get_prop(entity.get_local_player(), "m_angEyeAngles");local lby_rot = entity.get_prop(entity.get_local_player(), "m_flLowerBodyYawTarget");local _, cam_rot = client.camera_angles()
         local c3d = { degrees=50, start_at=head_rot, start_at2=fake_rot, start_at3=lby_rot }
         local lp_pos = vector(entity.get_origin(entity.get_local_player()))
@@ -881,7 +939,7 @@ client.set_event_callback(
         else
             ani.alpha_fakeangle = lerp(ani.alpha,0,globals.frametime() * 6)
         end
-        local tp_check = ui.get(teleport_key) and 100 or 6
+        local tp_check = ui.get(b.teleport_key) and 100 or 6
         if ui.get(references.doubletap[2]) then
             ani.dt = math.floor(lerp(ani.dt,255,globals.frametime() * 6))
             ani.dt_offset = math.floor(lerp(ani.dt_offset,250,globals.frametime() * tp_check))
@@ -936,31 +994,13 @@ client.set_event_callback(
         else
             ani.charged = math.floor(lerp(ani.charged,0,globals.frametime() * 6))
         end
-        if alpha < 1 then alpha = 0 end
-        if alpha > 255 then alpha = 255 end
         teleport()
         local local_player = entity.get_local_player()
-        if contains(ui.get(indicators), "Status Netgraph") then
+        if contains(ui.get(b.indicators), "Status Netgraph") then
             local pulse = math.sin(math.abs((math.pi * -1) + (globals.curtime() * (1 / 0.35)) % (math.pi * 2))) * 255
             local r, g, b = 30, 255, 109
             local recovery = stamina()
-            if velocity() > hit_bind() then
-                if ui.get(key3) then
-                    r, g, b = 250, 140, 53
-                else
-                    r, g, b = 64, 224, 208
-                end
-            end
 
-            if velocity() <= hit_bind() then
-                if ui.get(key3) then
-                    r, g, b = 250, 140, 53
-                else
-                    r, g, b = 253, 162, 180
-                end
-            end
-
-            local r2, g2, b2 = 30, 255, 109
 
             if recovery <= stamina_bind() then
                 if ui.get(key3) then
@@ -982,6 +1022,22 @@ client.set_event_callback(
             local g4 = 255 * on_hit()
             local b4 = 13
 
+            local overlap_out = math.floor(100 *anti_aim.get_overlap(rotation))
+
+            local r5 = 255
+            local g5 = 255
+            local b5 = 255
+            if overlap_out > 90 then
+                r5 = 188
+                g5 = 150
+                b5 = 150
+                else if overlap_out < 30 then
+                r5 = 0
+                g5 = 180
+                b5 = 0
+                end
+            end
+
             local rr, gr, br = 255, 255, 255
             if is_rolling == true then
                 rr, gr, br = 253, 162, 180
@@ -996,27 +1052,16 @@ client.set_event_callback(
                 end
             end
 
-        
-            if ui.get(key3) then
-                renderer.text(center_x, center_y + 57 + offset, 253, 162, 180, pulse, "-", nil, "FORCE ROLL ( KEY )")
-            end
+    
             local header = gradient_text(255, 255, 255, 255, r4, g4, b4, 255, "_MLC.YAW")
             renderer.text(center_x, center_y + 35, 255, 255, 255, 255, "-", nil, header)
-            --renderer.text(center_x + 20, center_y + 35, r4, g4, b4, 255, "-", nil, ".YAW")
-            --renderer.text(center_x, center_y + 28, r, g, b, 255, "-", nil, "SPEED")
-            --    renderer.text(center_x + 35, center_y + 28, r, g, b, 255, "-", nil, math.floor(velocity()))
-            --renderer.text(center_x, center_y + 43, r2, g2, b2, 255, "-", nil, "STAMINA")
-            --renderer.text(center_x, center_y + 43, 255, 255, 255, 199, "-", nil, "EXPLOIT:")
+            if contains(ui.get(misc_combobox), "Debug Tools") then
+                renderer.text(center_x + 50, center_y + 35, r5, g5, b5, 255, " ", nil, "("..overlap_out.."%)")
+            end
+
             m_render_engine.render_container(center_x + 2, center_y + 46, ani.speed_offset / 6, 5, rr, gr, br, ani.alpha)
             renderer.text(center_x + ani.speed_offset / 6 + 2, center_y + 43, rr, gr, br, ani.alpha, "-", nil, speed_text)
-            --renderer.text(center_x + animations.speed_offset / 6 + 2, 253, 162, 180, pulse, "-", nil, "FORCE ROLL ( DISABLE )")
-			--renderer_rectangle(center_x + 2, center_y + 46, velocity() / 8, 5, r, g, b, velocity())
-            --        if stamina() >= 45 and velocity() <= ui.get(velocity_slider)  then
-            --           renderer.text(center_x, center_y + 50, 253, 162, 180, pulse, "-", nil, "FORCE ROLL")
-            --       end
-            --        if inair() and stamina() >= 45  then
-            --            renderer.text(center_x, center_y + 50, 253, 162, 180, pulse, "-", nil, "FORCE ROLL")
-            --        end
+
             local state = gradient_text(253, 162, 180, 255, 64, 224, 208, 255, "FAKE ANGLE +")
             if fake_angle == true and is_rolling == true then
                 renderer.text(center_x, center_y + 43 + ani.offset, 253, 162, 180, 255, "-", nil, state)
@@ -1034,15 +1079,10 @@ client.set_event_callback(
                 end
             end
             draw_circle_3d(lp_pos.x, lp_pos.y, lp_pos.z, 43+2*1, c3d.degrees, c3d.start_at2, rr, gr, br, 255)
-            if fake_angle == true then
-            else
-                --renderer.text(center_x, center_y + 50 + offset, 255, 255, 255, 100, "-", nil, "FAKE ANGLE")
-            end
             if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then
                 renderer.text(center_x, center_y + 43 + ani.offset, 255, 255, 0, pulse, "-", nil, "BYPASS")
             else
-                --renderer.text(center_x + 32, center_y + 64, 255, 255, 255, ui.get(ref['fs'][2]) and 255 or 100, "-",nil, "FS")
-                --renderer.text(center_x, center_y + 64, 253, 162, 180, 255, "-", nil, "FORCE ROLL")
+
             end
             local first_exp = ani.dt_offset_exp / 21
             local second_exp = first_exp + ani.hide_offset_exp / 13
@@ -1051,19 +1091,6 @@ client.set_event_callback(
             renderer.text(center_x + 31 - ani.hide_offset / 7.67 + first_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.hide, "-",nil, "HIDE")
             renderer.text(center_x + 31 - ani.baim_offset / 7.67 + second_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.baim, "-",nil, "BAIM")
             renderer.text(center_x + 32 - ani.safe_offset / 7.67 + third_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.safe, "-",nil, "SP")
-            if not ui.get(checkbox_hitchecker) and on_hit() < 0.9 and air_status() == 1 and not ui.get(key3) and
-                is_on_ladder
-             then
-                renderer.text(center_x, center_y + 53 + ani.offset, 253, 162, 180, pulse, "-", nil, "FORCE ROLL ( DISABLE )")
-            end
-        if contains(ui.get(indicators), "Debug") then
-         --   renderer.text(center_x, center_y + 50, 253, 162, 180, 255, "+", nil, stamina_bind())
-         --   renderer.text(center_x, center_y + 70, 253, 162, 180, 255, "+", nil, air_status())
-         --   renderer.text(center_x, center_y + 90, 253, 162, 180, 255, "+", nil, hit_bind())
-        --    renderer.text(center_x, center_y + 110, 253, 162, 180, 255, "+", nil, is_on_ladder)
-            renderer.text(center_x, center_y + 130, 253, 162, 180, 255, "+", nil, "Is Rolling:")
-            renderer.text(center_x + 100, center_y + 130, 253, 162, 180, 255, "+", nil, is_rolling)
-        end
     end
 end
 )
