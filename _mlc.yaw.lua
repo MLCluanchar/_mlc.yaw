@@ -462,6 +462,7 @@ client.set_event_callback(
                 local pUserCmd = g_pInput.vfptr.GetUserCmd(ffi.cast("uintptr_t", g_pInput), 0, cmd.command_number)
                 local local_player = entity_get_local_player()
                 local my_weapon = entity_get_player_weapon(local_player)
+                local my_weapon = entity.get_player_weapon(local_player)
                 local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
                 local is_grenade =
                     ({
@@ -793,6 +794,11 @@ client.set_event_callback('setup_command', function(cmd)
 end
 end)
 
+local function antiaim_yaw_jitter_abs()
+    return ui.get(references.yaw[2]) > 0
+end
+
+
 local overlap = function(cmd)
     local local_player = entity_get_local_player( )
     if ( not entity_is_alive( local_player ) ) then
@@ -800,14 +806,14 @@ local overlap = function(cmd)
     end
     if not is_rolling then return end 
     if cmd.chokedcommands ~= 0 then return end
-    if contains(ui.get(misc_combobox), "Avoid Overlap") then
+    if contains(ui.get(misc_combobox), "Avoid Overlap") and anti_aim.get_overlap(rotation) < 0.95 then
         ui.set(references.body_yaw[1], "Static")
-        ui.set(references.body_yaw[2], antiaim_yaw_jitter(-60,60))
         ui.set(references.yaw[2], antiaim_yaw_jitter(-10,10))
-        ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -50 or 50)
+        ui.set(references.body_yaw[2], antiaim_yaw_jitter_abs() and 80 or -80)
+        ui.set(slider_roll, antiaim_yaw_jitter_abs() and -50 or 50)
         ui.set(b.in_air_roll, antiaim_yaw_jitter(-50,50))
         else
-        ui.set(references.body_yaw[1], "Opposite")
+        ui.set(references.body_yaw[1], "Static")
         ui.set(references.yaw[2], anti_aim.get_desync(1) and -5 or 5)
         ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -50 or 50)
     end
