@@ -214,7 +214,8 @@ local misc_combobox =
     "Anti-aimbot angles",
     "Misc",
     "Debug Tools",
-    "Avoid Overlap"
+    "Avoid Overlap",
+    "Old Animation"
 )
 local b = {
     teleport_key = ui_new_hotkey("AA", "Other", "Teleport key"),
@@ -709,10 +710,9 @@ local fake_yaw = 0
 local status
 local function static()
     ui.set(references.yaw[1], "180")
-    --ui.set(references.body_yaw[2], 137)
     ui.set(references.yaw_base, "At targets")
     ui.set(references.jitter[2], 0)
-    ui.set(references.fake_limit, 58)
+    ui.set(references.fake_limit, 60)
     TIME = globals_realtime() + 0.12
 end
 local function jitter()
@@ -747,6 +747,11 @@ if not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then return end
         end
     end
 end
+
+local function antiaim_yaw_jitter_abs()
+    return ui.get(references.yaw[2]) > 0
+end
+
 
 client.set_event_callback('setup_command', function(cmd)
     -----------Moving overlap
@@ -793,11 +798,6 @@ client.set_event_callback('setup_command', function(cmd)
 end
 end)
 
-local function antiaim_yaw_jitter_abs()
-    return ui.get(references.yaw[2]) > 0
-end
-
-
 local overlap = function(cmd)
     local local_player = entity_get_local_player( )
     if ( not entity_is_alive( local_player ) ) then
@@ -806,14 +806,14 @@ local overlap = function(cmd)
     if not is_rolling then return end 
     if cmd.chokedcommands ~= 0 then return end
     if contains(ui.get(misc_combobox), "Avoid Overlap") and anti_aim.get_overlap(rotation) < 0.95 then
-        ui.set(references.body_yaw[1], "Static")
-        ui.set(references.yaw[2], antiaim_yaw_jitter(-10,10))
+        ui.set(references.body_yaw[1], "Opposite")
+        ui.set(references.yaw[2], anti_aim.get_desync(1) > 0 and -5 or 5)
         ui.set(references.body_yaw[2], antiaim_yaw_jitter_abs() and 80 or -80)
-        ui.set(slider_roll, antiaim_yaw_jitter_abs() and -50 or 50)
-        ui.set(b.in_air_roll, antiaim_yaw_jitter(-50,50))
+        ui.set(slider_roll, antiaim_yaw_jitter_abs() and 50 or -50)
+        ui.set(b.in_air_roll, antiaim_yaw_jitter_abs() and 50 or -50)
         else
-        ui.set(references.body_yaw[1], "Static")
-        ui.set(references.yaw[2], anti_aim.get_desync(1) and -5 or 5)
+        ui.set(references.body_yaw[1], "Opposite")
+        ui.set(references.yaw[2], anti_aim.get_desync(1) > 0 and -5 or 5)
         ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -50 or 50)
     end
 end
@@ -1283,18 +1283,26 @@ client.set_event_callback("paint", function()
         
         if m_state == 1 then
             ani.manual_lef = lerp(ani.manual_lef,40,globals.frametime() * 6)
-            renderer.text(w/2 - distance - ani.manual_lef, h / 2 - 1, r, g, b, a, "+c", 0, "❮")
+            renderer.text(w/2 - distance - ani.manual_lef, h / 2 - 1,  r, g, b, ani.manual_lef * 4 + 90, "+c", 0, "❮")
             else
             ani.manual_lef = lerp(ani.manual_lef,0,globals.frametime() * 6)
-            renderer.text(w/2 - distance - ani.manual_lef, h / 2 - 1, r, g, b, a, "+c", 0, "❮")
+            renderer.text(w/2 - distance - ani.manual_lef, h / 2 - 1, r, g, b, ani.manual_lef * 4 + 90, "+c", 0, "❮")
         end        
         if m_state == 2 then 
             ani.manual_right = lerp(ani.manual_right,40,globals.frametime() * 6)
-            renderer.text(w/2 + distance + ani.manual_right, h / 2 - 1, r, g, b, a, "+c", 0, "❯") 
+            renderer.text(w/2 + distance + ani.manual_right, h / 2 - 1, r, g, b, ani.manual_right * 4 + 90, "+c", 0, "❯") 
         else
             ani.manual_right = lerp(ani.manual_right,0,globals.frametime() * 6)
-            renderer.text(w/2 + distance + ani.manual_right, h / 2 - 1, r, g, b, a, "+c", 0, "❯") 
+            renderer.text(w/2 + distance + ani.manual_right, h / 2 - 1, r, g, b, ani.manual_right * 4 + 90, "+c", 0, "❯") 
         end
         if m_state == 3 or m_state == 0 then renderer.text(w/2, h / 2 + distance, r, g, b, a, "+c", 0, "") end
     end
 end)
+
+-----------------Animation
+
+client.set_event_callback("pre_render", function()
+    if contains(ui.get(misc_combobox), "Old Animation") then 
+        entity.set_prop(entity.get_local_player(), "m_flPoseParameter", 1, 6) 
+    end
+ end)
