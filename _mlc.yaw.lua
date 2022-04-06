@@ -461,7 +461,6 @@ client.set_event_callback(
             if ui.get(references.doubletap[2]) then return end
                 local pUserCmd = g_pInput.vfptr.GetUserCmd(ffi.cast("uintptr_t", g_pInput), 0, cmd.command_number)
                 local local_player = entity_get_local_player()
-                local my_weapon = entity_get_player_weapon(local_player)
                 local my_weapon = entity.get_player_weapon(local_player)
                 local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
                 local is_grenade =
