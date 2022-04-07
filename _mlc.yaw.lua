@@ -205,8 +205,7 @@ local static_mode_combobox =
     "On Ladders",
     "Low Stamina",
     "On Key",
-    "< Speed Velocity",
-    "Avoid Overlap"
+    "< Speed Velocity"
 )
 local misc_combobox =
     ui.new_multiselect(
@@ -215,7 +214,9 @@ local misc_combobox =
     "Misc",
     "Debug Tools",
     "Avoid Overlap",
-    "Old Animation"
+    "Old Animation",
+    "Legit Anti-aim on use",
+    "Fast Zeus"
 )
 local b = {
     teleport_key = ui_new_hotkey("AA", "Other", "Teleport key"),
@@ -901,8 +902,9 @@ local function is_local_peeking_enemy( player )
     return smallest_distance < start_distance
 end
 
-
+local detections = "WAITING"
 function detection()
+if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
     local closest_fov           = 100000
 
     local player_list           = entity.get_players( true )
@@ -925,16 +927,20 @@ function detection()
             end
         end
     end
+    detections = "DORMANCY"
     if needed_player ~= -1 then
         if not entity.is_dormant( player ) and entity.is_alive( player ) and is_rolling == true then
             if ( ( is_enemy_peeking( player ) or is_local_peeking_enemy( player ) ) ) == true then
                 left_peek()
+                detections = "LEFT PEEKS"
             else
                 right_peek()
+                detections = "RIGHT PEEKS"
             end
         end
     end
 end
+
 -- this is the end of a function for detecting whether the enemy is peeking the local player
 
 local vars = {
@@ -946,9 +952,6 @@ local vars = {
     chocke = 0,
     chocking = 0
 }
-client.set_event_callback('setup_command', function(c)
-    c.chokedcommands = vars.chocke
-end)
 
 local function antiaim_yaw_jitter(a,b)
     if globals.tickcount() - vars.y_vars > 1  then
@@ -990,7 +993,7 @@ if not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then return end
     if is_rolling == true or fake_angle == true then
         Jittering = false
         static()
-        else if is_rolling == false then
+        else if is_rolling == false or fake_angle == false then
             Jittering = true
             antiaim_state = status
             jitter ()
@@ -1055,7 +1058,7 @@ local overlap = function(cmd)
     if ( not entity_is_alive( local_player ) ) then
         return     
     end
-
+    detection()
     if not is_rolling then return end 
     if cmd.chokedcommands ~= 0 then return end
     if contains(ui.get(misc_combobox), "Avoid Overlap") and anti_aim.get_overlap(rotation) < 0.95 then
@@ -1323,7 +1326,7 @@ client.set_event_callback(
                 else if fake_angle == true then
                     renderer.text(center_x, center_y + 43 + ani.offset, 64, 224, 208, 255, "-", nil, "FAKE ANGLE")
                     else if  is_rolling == true then
-                        renderer.text(center_x, center_y + 43 + ani.offset, 253, 162, 180, 255, "-", nil, "FORCE ROLL")
+                        renderer.text(center_x, center_y + 43 + ani.offset, 253, 162, 180, 255, "-", nil, detections)
                         else if Jittering == true then
                             renderer.text(center_x, center_y + 43 + ani.offset, 184, 187, 230, 255, "-", nil, antiaim_state)
                             else if Jittering == false and fake_angle == false and is_rolling == false then
