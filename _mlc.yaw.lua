@@ -1030,7 +1030,7 @@ client.set_event_callback('setup_command', function(cmd)
     if ui.get(references.jitter[2]) < 60 and anti_aim.get_overlap(rotation) > 0.77 then
         status = "FAKE YAW"
         ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
-        if contains(ui.get(misc_combobox), "Jitter roll in air") then
+        if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
             if inair() then
             cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
             status = "FAKE YAW + "
@@ -1039,7 +1039,7 @@ client.set_event_callback('setup_command', function(cmd)
     else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.77 then
         status = "FAKE YAW"
         ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
-        if contains(ui.get(misc_combobox), "Jitter roll in air") then
+        if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
             if inair() then
             cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
             status = "FAKE YAW + "
@@ -1064,7 +1064,7 @@ client.set_event_callback('setup_command', function(cmd)
     if ui.get(references.jitter[2]) < 60 and anti_aim.get_overlap(rotation) > 0.63 then
         status = "FAKE YAW"
         ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
-        if contains(ui.get(misc_combobox), "Jitter roll in air") then
+        if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
             if inair() then
             cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
             status = "FAKE YAW + "
@@ -1073,7 +1073,7 @@ client.set_event_callback('setup_command', function(cmd)
     else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.84 then
         status = "FAKE YAW"
         ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
-        if contains(ui.get(misc_combobox), "Jitter roll in air") then
+        if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
             if inair() then
             cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
             status = "FAKE YAW + "
