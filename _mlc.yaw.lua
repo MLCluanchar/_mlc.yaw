@@ -375,76 +375,80 @@ local function hide_keys()
         return key100
     end
 end
-
---------------------End of Player Movement state----------------------
-local is_rolling = false
 --------------------Main Functions for Rolling--------------------
-local function on_run_command(cmd)
-    hide_keys()
-    local speed = velocity()
-    local recovery = stamina()
-    if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
-    if air_status() == 0 and not ui.get(key3) and speed >= hit_bind() and recovery >= stamina_bind() and Ladder_status() == 0 then
-        is_rolling = false
-        return
-    end
-    local local_player = entity_get_local_player()
-    if not entity_is_alive(local_player) then
-        return
-    end
-    is_rolling = true
-    stamina_bind()
-    hit_bind()
-    local pUserCmd = g_pInput.vfptr.GetUserCmd(ffi.cast("uintptr_t", g_pInput), 0, cmd.command_number)
-
-    local my_weapon = entity.get_player_weapon(local_player)
-    local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
-    local is_grenade =
-        ({
-        [43] = true,
-        [44] = true,
-        [45] = true,
-        [46] = true,
-        [47] = true,
-        [48] = true,
-        [68] = true
-    })[wepaon_id] or false
-
-    if is_grenade then
-        local throw_time = entity_get_prop(my_weapon, "m_fThrowTime")
-        if bit_band(pUserCmd.buttons, buttons_e.attack) == 0 or bit_band(pUserCmd.buttons, buttons_e.attack_2) == 0 then
-            if throw_time > 0 then
+local is_rolling = false
+client.set_event_callback("setup_command", function(cmd)
+        hide_keys()
+        stamina_bind()
+        hit_bind()
+        local speed = velocity()
+        local recovery = stamina()
+        if contains(ui.get(Exploit_mode_combobox), "Roll Angle") then
+            if air_status() == 0 and not ui.get(key3) and speed >= hit_bind() and recovery >= stamina_bind() and Ladder_status() == 0 then
+                is_rolling = false
                 return
             end
+                -- your aa
+                is_rolling = true
+                local local_player = entity_get_local_player()
+                if not entity_is_alive(local_player) then
+                    return
+                end
+                local pUserCmd = g_pInput.vfptr.GetUserCmd(ffi.cast("uintptr_t", g_pInput), 0, cmd.command_number)
+
+                local my_weapon = entity.get_player_weapon(local_player)
+                local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
+                local is_grenade =
+                    ({
+                    [43] = true,
+                    [44] = true,
+                    [45] = true,
+                    [46] = true,
+                    [47] = true,
+                    [48] = true,
+                    [68] = true
+                })[wepaon_id] or false
+
+                if is_grenade then
+                    local throw_time = entity_get_prop(my_weapon, "m_fThrowTime")
+                    if
+                        bit_band(pUserCmd.buttons, buttons_e.attack) == 0 or
+                            bit_band(pUserCmd.buttons, buttons_e.attack_2) == 0
+                     then
+                        if throw_time > 0 then
+                            return
+                        end
+                    end
+                end
+
+                -- +use to disable like any anti aim
+                --if bit_band(pUserCmd.buttons, buttons_e.use) > 0 then
+                --return
+                --end
+
+                --if bit_band(pUserCmd.buttons, buttons_e.attack) > 0 then
+                --return
+                --end
+
+                --if wepaon_id == 64 and bit_band(pUserCmd.buttons, buttons_e.attack_2) > 0 then
+                --return
+                --end
+                pUserCmd.viewangles.roll = roll_bind()
+
+                --    g_ForwardMove = pUserCmd.forwardmove
+                --    g_SideMove = pUserCmd.sidemove
+                --    g_pOldAngles = vector(pUserCmd.viewangles.pitch, pUserCmd.viewangles.yaw, pUserCmd.viewangles.roll)
+
+                if contains(ui.get(b.indicators), "Debug") then
+                --        pUserCmd.forwardmove = math_clamp(new_forward, -450.0, 450.0)           not working properly
+                --        pUserCmd.sidemove = math_clamp(new_side, -450.0, 450.0)
+                end
+            else
+                is_rolling = false
         end
-    end
 
-    -- +use to disable like any anti aim
-    --if bit_band(pUserCmd.buttons, buttons_e.use) > 0 then
-        --return
-    --end
+end)
 
-    --if bit_band(pUserCmd.buttons, buttons_e.attack) > 0 then
-        --return
-    --end
-
-    --if wepaon_id == 64 and bit_band(pUserCmd.buttons, buttons_e.attack_2) > 0 then
-        --return
-    --end
-    if contains(ui.get(Exploit_mode_combobox), "Roll Angle") then
-        pUserCmd.viewangles.roll = roll_bind()
-    else end
---    g_ForwardMove = pUserCmd.forwardmove
---    g_SideMove = pUserCmd.sidemove
---    g_pOldAngles = vector(pUserCmd.viewangles.pitch, pUserCmd.viewangles.yaw, pUserCmd.viewangles.roll)
-
-    if contains(ui.get(b.indicators), "Debug") then
---        pUserCmd.forwardmove = math_clamp(new_forward, -450.0, 450.0)           not working properly
---        pUserCmd.sidemove = math_clamp(new_side, -450.0, 450.0)
-    end
-
-    -- your aa
-end
 --------------------Main Functions for fake angle--------------------
 local ticks_user = ui.reference("misc", "settings", "sv_maxusrcmdprocessticks")
 local speed_slider = ui.new_slider("AA", "Anti-aimbot angles", "Fake Angle Speed Trigger", 0, 250, 10, true, " ")
@@ -618,12 +622,13 @@ local m_render_engine = (function()
 	return a
 end)()
 
+-------------------Teleport function-------------------
 local double_tap, double_tap_key = ui.reference('Rage','Other','Double tap')
 local fakeducking = ui.reference('RAGE', 'Other', 'Duck peek assist')
 local limit = ui.reference('aa', 'Fake lag', 'Limit')
 local box, key = ui.reference( 'Rage', 'Other', 'Quick peek assist' )
 
--------------------Teleport function-------------------
+
 local is_tp
 function teleport()
     local getstate = ui.get(b.teleport_key) and not ui.get(fakeducking) 
@@ -1159,6 +1164,31 @@ local center_x, center_y = ss[1] / 2, ss[2] / 2
 client.set_event_callback(
     "paint",
     function(e)
+        if contains(ui.get(misc_combobox), "Debug Tools") then
+            local overlap_out = math.floor(100 *anti_aim.get_overlap(rotation))
+
+            local r5 = 255
+            local g5 = 255
+            local b5 = 255
+            if overlap_out > 90 then
+                r5 = 188
+                g5 = 150
+                b5 = 150
+                else if overlap_out < 30 then
+                r5 = 0
+                g5 = 180
+                b5 = 0
+                end
+            end
+
+            renderer.text(center_x + 50, center_y + 35, r5, g5, b5, 255, " ", nil, "("..overlap_out.."%)")
+            renderer.text(center_x + 50, center_y + 45, r5, g5, b5, 255, " ", nil, "Roll:")
+            renderer.text(center_x + 73, center_y + 45, r5, g5, b5, 255, " ", nil, is_rolling)
+            renderer.text(center_x + 50, center_y + 55, r5, g5, b5, 255, " ", nil, "Fake Angle:")
+            renderer.text(center_x + 107, center_y + 55, r5, g5, b5, 255, " ", nil, fake_angle)
+            renderer.text(center_x + 50, center_y + 65, r5, g5, b5, 255, " ", nil, "Fake Yaw:")
+            renderer.text(center_x + 99, center_y + 65, r5, g5, b5, 255, " ", nil, Jittering)
+        end
 
             local local_player = entity_get_local_player( )
     if ( not entity_is_alive( local_player ) ) then
@@ -1280,22 +1310,6 @@ client.set_event_callback(
             local g4 = 255 * on_hit()
             local b4 = 13
 
-            local overlap_out = math.floor(100 *anti_aim.get_overlap(rotation))
-
-            local r5 = 255
-            local g5 = 255
-            local b5 = 255
-            if overlap_out > 90 then
-                r5 = 188
-                g5 = 150
-                b5 = 150
-                else if overlap_out < 30 then
-                r5 = 0
-                g5 = 180
-                b5 = 0
-                end
-            end
-
             local rr, gr, br = 255, 255, 255
             if is_rolling == true then
                 rr, gr, br = 253, 162, 180
@@ -1313,16 +1327,6 @@ client.set_event_callback(
     
             local header = gradient_text(255, 255, 255, 255, r4, g4, b4, 255, "_MLC.YAW")
             renderer.text(center_x, center_y + 35, 255, 255, 255, 255, "-", nil, header)
-            if contains(ui.get(misc_combobox), "Debug Tools") then
-                renderer.text(center_x + 50, center_y + 35, r5, g5, b5, 255, " ", nil, "("..overlap_out.."%)")
-                renderer.text(center_x + 50, center_y + 45, r5, g5, b5, 255, " ", nil, "Roll:")
-                renderer.text(center_x + 73, center_y + 45, r5, g5, b5, 255, " ", nil, is_rolling)
-                renderer.text(center_x + 50, center_y + 55, r5, g5, b5, 255, " ", nil, "Fake Angle:")
-                renderer.text(center_x + 107, center_y + 55, r5, g5, b5, 255, " ", nil, fake_angle)
-                renderer.text(center_x + 50, center_y + 65, r5, g5, b5, 255, " ", nil, "Fake Yaw:")
-                renderer.text(center_x + 99, center_y + 65, r5, g5, b5, 255, " ", nil, Jittering)
-            end
-
             m_render_engine.render_container(center_x + 2, center_y + 46, ani.speed_offset / 6, 5, rr, gr, br, ani.alpha)
             renderer.text(center_x + ani.speed_offset / 6 + 2, center_y + 43, rr, gr, br, ani.alpha, "-", nil, speed_text)
 
@@ -1359,7 +1363,6 @@ client.set_event_callback(
 end
 )
 
-client.set_event_callback("run_command", on_run_command)
 client.set_event_callback("setup_command", on_setup_command)
 
 
