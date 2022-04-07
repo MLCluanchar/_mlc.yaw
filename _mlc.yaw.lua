@@ -377,7 +377,7 @@ local function hide_keys()
 end
 
 --------------------End of Player Movement state----------------------
-local is_rolling 
+local is_rolling = false
 --------------------Main Functions for Rolling--------------------
 local function on_run_command(cmd)
     hide_keys()
@@ -448,7 +448,7 @@ end
 --------------------Main Functions for fake angle--------------------
 local ticks_user = ui.reference("misc", "settings", "sv_maxusrcmdprocessticks")
 local speed_slider = ui.new_slider("AA", "Anti-aimbot angles", "Fake Angle Speed Trigger", 0, 250, 10, true, " ")
-local fake_angle
+local fake_angle = false
 local num = 90
 local reverse_num = 180
 client.set_event_callback(
@@ -988,20 +988,20 @@ end
 end
 local antiaim_state
 local Jittering = false
-local aa_setup = function(cmd)
-if not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then return end
-    if is_rolling == true or fake_angle == true then
-        Jittering = false
-        static()
-        else if is_rolling == false or fake_angle == false then
-            Jittering = true
-            antiaim_state = status
-            jitter ()
-        else
-            jitter ()
+client.set_event_callback('setup_command', function(cmd)
+    Jittering = false
+    if contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
+        if is_rolling == true or fake_angle == true then
+            static()
+            Jittering = false
+            else if is_rolling == false or fake_angle == false and not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
+                Jittering = true
+                antiaim_state = status
+                jitter ()
+            end
         end
     end
-end
+end)
 
 local function antiaim_yaw_jitter_abs()
     return ui.get(references.yaw[2]) > 0
@@ -1315,6 +1315,12 @@ client.set_event_callback(
             renderer.text(center_x, center_y + 35, 255, 255, 255, 255, "-", nil, header)
             if contains(ui.get(misc_combobox), "Debug Tools") then
                 renderer.text(center_x + 50, center_y + 35, r5, g5, b5, 255, " ", nil, "("..overlap_out.."%)")
+                renderer.text(center_x + 50, center_y + 45, r5, g5, b5, 255, " ", nil, "Roll:")
+                renderer.text(center_x + 73, center_y + 45, r5, g5, b5, 255, " ", nil, is_rolling)
+                renderer.text(center_x + 50, center_y + 55, r5, g5, b5, 255, " ", nil, "Fake Angle:")
+                renderer.text(center_x + 107, center_y + 55, r5, g5, b5, 255, " ", nil, fake_angle)
+                renderer.text(center_x + 50, center_y + 65, r5, g5, b5, 255, " ", nil, "Fake Yaw:")
+                renderer.text(center_x + 99, center_y + 65, r5, g5, b5, 255, " ", nil, Jittering)
             end
 
             m_render_engine.render_container(center_x + 2, center_y + 46, ani.speed_offset / 6, 5, rr, gr, br, ani.alpha)
@@ -1323,7 +1329,7 @@ client.set_event_callback(
             local state = gradient_text(253, 162, 180, 255, 64, 224, 208, 255, "FAKE ANGLE +")
             if fake_angle == true and is_rolling == true then
                 renderer.text(center_x, center_y + 43 + ani.offset, 253, 162, 180, 255, "-", nil, state)
-                else if fake_angle == true then
+                else if fake_angle == true  then
                     renderer.text(center_x, center_y + 43 + ani.offset, 64, 224, 208, 255, "-", nil, "FAKE ANGLE")
                     else if  is_rolling == true then
                         renderer.text(center_x, center_y + 43 + ani.offset, 253, 162, 180, 255, "-", nil, detections)
@@ -1513,7 +1519,6 @@ client.set_event_callback("setup_command", function(e)
 end)
 
 client.set_event_callback("paint", function()
-    aa_setup()
     menu_callback(true, true)
     bind_system:update()
     
