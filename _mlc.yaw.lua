@@ -677,6 +677,265 @@ local function draw_circle_3d(x, y, z, radius, degrees, start_at, r, g, b, a)
 	end
 end
 -------------------------Basic Anti Aim----------------------
+local function left_peek()
+    ui.set(references.body_yaw[1], "Static")
+    ui.set(references.yaw[2],  -15)
+    ui.set(references.body_yaw[2], -80)
+    ui.set(slider_roll, 50)
+    ui.set(b.in_air_roll, 50)
+end
+local function right_peek()
+    ui.set(references.body_yaw[1], "Static")
+    ui.set(references.yaw[2],  15)
+    ui.set(references.body_yaw[2], 80)
+    ui.set(slider_roll, -50)
+    ui.set(b.in_air_roll, -50)
+end
+local _V3_MT   = {};
+_V3_MT.__index = _V3_MT;
+
+local function Vector3( x, y, z )
+    -- check args
+    if( type( x ) ~= "number" ) then
+        x = 0.0;
+    end
+
+    if( type( y ) ~= "number" ) then
+        y = 0.0;
+    end
+
+    if( type( z ) ~= "number" ) then
+        z = 0.0;
+    end
+
+    x = x or 0.0;
+    y = y or 0.0;
+    z = z or 0.0;
+
+    return setmetatable(
+        {
+            x = x,
+            y = y,
+            z = z
+        },
+        _V3_MT
+    );
+end
+
+
+function _V3_MT.__sub( a, b ) -- subtract another vector or number
+    local a_type = type( a );
+    local b_type = type( b );
+
+    if( a_type == "table" and b_type == "table" ) then
+        return Vector3(
+            a.x - b.x,
+            a.y - b.y,
+            a.z - b.z
+        );
+    elseif( a_type == "table" and b_type == "number" ) then
+        return Vector3(
+            a.x - b,
+            a.y - b,
+            a.z - b
+        );
+    elseif( a_type == "number" and b_type == "table" ) then
+        return Vector3(
+            a - b.x,
+            a - b.y,
+            a - b.z
+        );
+    end
+end
+
+function _V3_MT:length_sqr() -- squared 3D length
+    return ( self.x * self.x ) + ( self.y * self.y ) + ( self.z * self.z );
+end
+
+function _V3_MT:length() -- 3D length
+    return math_sqrt( self:length_sqr() );
+end
+
+function _V3_MT:dot( other ) -- dot product
+    return ( self.x * other.x ) + ( self.y * other.y ) + ( self.z * other.z );
+end
+
+function _V3_MT:cross( other ) -- cross product
+    return Vector3(
+        ( self.y * other.z ) - ( self.z * other.y ),
+        ( self.z * other.x ) - ( self.x * other.z ),
+        ( self.x * other.y ) - ( self.y * other.x )
+    );
+end
+
+function _V3_MT:dist_to( other ) -- 3D length to another vector
+    return ( other - self ):length();
+end
+
+function _V3_MT:normalize() -- normalizes this vector and returns the length
+    local l = self:length();
+    if( l <= 0.0 ) then
+        return 0.0;
+    end
+
+    self.x = self.x / l;
+    self.y = self.y / l;
+    self.z = self.z / l;
+
+    return l;
+end
+
+
+function _V3_MT:normalized() -- returns a normalized unit vector
+    local l = self:length();
+    if( l <= 0.0 ) then
+        return Vector3();
+    end
+
+    return Vector3(
+        self.x / l,
+        self.y / l,
+        self.z / l
+    );
+end
+
+
+local function angle_forward( angle ) -- angle -> direction vector (forward)
+    local sin_pitch = math_sin( math_rad( angle.x ) );
+    local cos_pitch = math_cos( math_rad( angle.x ) );
+    local sin_yaw   = math_sin( math_rad( angle.y ) );
+    local cos_yaw   = math_cos( math_rad( angle.y ) );
+
+    return Vector3(
+        cos_pitch * cos_yaw,
+        cos_pitch * sin_yaw,
+        -sin_pitch
+    );
+end
+
+local function get_FOV( view_angles, start_pos, end_pos ) -- get fov to a vector (needs client view angles, start position (or client eye position for example) and the end position)
+    local type_str;
+    local fwd;
+    local delta;
+    local fov;
+
+    fwd   = angle_forward( view_angles );
+    delta = ( end_pos - start_pos ):normalized();
+    fov   = math.acos( fwd:dot( delta ) / delta:length() );
+
+    return math_max( 0.0, math.deg( fov ) );
+end
+
+local predict_ticks         = 17
+-- end of the anti-aim peeking function for smart jitter
+
+-- this is a function to help with on peeking and getting peeked functions
+local function distance_3d( x1, y1, z1, x2, y2, z2 )
+
+        return math.sqrt( ( x1-x2 )*( x1-x2 )+( y1-y2 )*( y1-y2 ) )
+end
+
+-- function for extrapolating player
+local function extrapolate( player , ticks , x, y, z )
+    local xv, yv, zv =  entity.get_prop( player, "m_vecVelocity" )
+    local new_x = x+globals.tickinterval( )*xv*ticks
+    local new_y = y+globals.tickinterval( )*yv*ticks
+    local new_z = z+globals.tickinterval( )*zv*ticks
+    return new_x, new_y, new_z
+
+end
+-- end of functions to help with on peeking and getting peeked functions
+
+-- this is the start of a function for detecting whether the local player is peeking an enemy
+local function is_enemy_peeking( player )
+    local speed = velocity()
+    if speed < 5 then
+        return false
+    end
+    local ex, ey, ez = entity.get_origin( player ) 
+    local lx, ly, lz = entity.get_origin( entity.get_local_player ( ) )
+    local start_distance = math.abs( distance_3d( ex, ey, ez, lx, ly, lz ) )
+    local smallest_distance = 999999
+    for ticks = 1, predict_ticks do
+        local tex,tey,tez = extrapolate( player, ticks, ex, ey, ez )
+        local distance = math.abs( distance_3d( tex, tey, tez, lx, ly, lz ) )
+
+        if distance < smallest_distance then
+            smallest_distance = distance
+        end
+        if smallest_distance < start_distance then
+            return true
+        end
+    end
+    --client.log(smallest_distance .. "      " .. start_distance)
+    return smallest_distance < start_distance
+end
+-- this is the end of a function for detecting whether the local player is peeking an enemy
+
+-- this is the start of a function for detecting whether the enemy is peeking the local player
+local function is_local_peeking_enemy( player )
+    local speed = velocity()
+    if speed < 5 then
+        return false
+    end
+    local ex,ey,ez = entity.get_origin( player )
+    local lx,ly,lz = entity.get_origin( entity.get_local_player() )
+    local start_distance = math.abs( distance_3d( ex, ey, ez, lx, ly, lz ) )
+    local smallest_distance = 999999
+    if ticks ~= nil then
+        TICKS_INFO = ticks
+    else
+    end
+    for ticks = 1, predict_ticks do
+
+        local tex,tey,tez = extrapolate( entity.get_local_player(), ticks, lx, ly, lz )
+        local distance = distance_3d( ex, ey, ez, tex, tey, tez )
+
+        if distance < smallest_distance then
+            smallest_distance = math.abs(distance)
+        end
+    if smallest_distance < start_distance then
+            return true
+        end
+    end
+    return smallest_distance < start_distance
+end
+
+
+function detection()
+    local closest_fov           = 100000
+
+    local player_list           = entity.get_players( true )
+
+    local eye_pos               = Vector3( x, y, z )
+    x,y,z                       = client.camera_angles( )
+    local cam_angles            = Vector3( x, y, z )
+    
+    for i = 1 , #player_list do
+        player                  = player_list[ i ]
+        if not entity.is_dormant( player ) and entity.is_alive( player ) then
+            if is_enemy_peeking( player ) or is_local_peeking_enemy( player ) then
+                last_time_peeked        = globals.curtime( )
+                local enemy_head_pos    = Vector3( entity.hitbox_position( player, 0 ) )
+                local current_fov       = get_FOV( cam_angles,eye_pos, enemy_head_pos )
+                if current_fov < closest_fov then
+                    closest_fov         = current_fov
+                    needed_player       = player
+                end
+            end
+        end
+    end
+    if needed_player ~= -1 then
+        if not entity.is_dormant( player ) and entity.is_alive( player ) and is_rolling == true then
+            if ( ( is_enemy_peeking( player ) or is_local_peeking_enemy( player ) ) ) == true then
+                left_peek()
+            else
+                right_peek()
+            end
+        end
+    end
+end
+-- this is the end of a function for detecting whether the enemy is peeking the local player
 
 local vars = {
     y_reversed = 1,
@@ -699,13 +958,6 @@ local function antiaim_yaw_jitter(a,b)
     return vars.y_reversed >= 1 and a or b
 end
 
-local function yaw_abs_detection()
-    if references.body_yaw[2] > 0 then
-        return 15
-    else
-        return -15
-    end
-end
 local fake_yaw = 0
 local status
 local function static()
@@ -803,6 +1055,7 @@ local overlap = function(cmd)
     if ( not entity_is_alive( local_player ) ) then
         return     
     end
+
     if not is_rolling then return end 
     if cmd.chokedcommands ~= 0 then return end
     if contains(ui.get(misc_combobox), "Avoid Overlap") and anti_aim.get_overlap(rotation) < 0.95 then
@@ -812,9 +1065,6 @@ local overlap = function(cmd)
         ui.set(slider_roll, antiaim_yaw_jitter_abs() and 50 or -50)
         ui.set(b.in_air_roll, antiaim_yaw_jitter_abs() and 50 or -50)
         else
-        ui.set(references.body_yaw[1], "Opposite")
-        ui.set(references.yaw[2], anti_aim.get_desync(1) > 0 and -5 or 5)
-        ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -50 or 50)
     end
 end
 
