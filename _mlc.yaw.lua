@@ -213,7 +213,7 @@ local misc_combobox =
     "Anti-aimbot angles",
     "Misc",
     "Debug Tools",
-    "Avoid Overlap",
+    "Roll with Fake yaw(air)",
     "Old Animation",
     "Legit Anti-aim on use",
     "Fast Zeus"
@@ -683,12 +683,14 @@ local function draw_circle_3d(x, y, z, radius, degrees, start_at, r, g, b, a)
 	end
 end
 -------------------------Basic Anti Aim----------------------
+
 local function left_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  -15)
     ui.set(references.body_yaw[2], -80)
     ui.set(slider_roll, 50)
     ui.set(b.in_air_roll, 50)
+    ui.set(references.jitter[2], 0)
 end
 local function right_peek()
     ui.set(references.body_yaw[1], "Static")
@@ -696,6 +698,7 @@ local function right_peek()
     ui.set(references.body_yaw[2], 80)
     ui.set(slider_roll, -50)
     ui.set(b.in_air_roll, -50)
+    ui.set(references.jitter[2], 0)
 end
 local _V3_MT   = {};
 _V3_MT.__index = _V3_MT;
@@ -971,7 +974,6 @@ local status
 local function static()
     ui.set(references.yaw[1], "180")
     ui.set(references.yaw_base, "At targets")
-    ui.set(references.jitter[2], 0)
     ui.set(references.fake_limit, 60)
     TIME = globals_realtime() + 0.12
 end
@@ -1028,9 +1030,21 @@ client.set_event_callback('setup_command', function(cmd)
     if ui.get(references.jitter[2]) < 60 and anti_aim.get_overlap(rotation) > 0.77 then
         status = "FAKE YAW"
         ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
+        if contains(ui.get(misc_combobox), "Jitter roll in air") then
+            if inair() then
+            cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
+            status = "FAKE YAW + "
+            end
+        end
     else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.77 then
         status = "FAKE YAW"
         ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
+        if contains(ui.get(misc_combobox), "Jitter roll in air") then
+            if inair() then
+            cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
+            status = "FAKE YAW + "
+            end
+        end
     else status = "OVERLAPED"
         return end
     end
@@ -1050,9 +1064,21 @@ client.set_event_callback('setup_command', function(cmd)
     if ui.get(references.jitter[2]) < 60 and anti_aim.get_overlap(rotation) > 0.63 then
         status = "FAKE YAW"
         ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
+        if contains(ui.get(misc_combobox), "Jitter roll in air") then
+            if inair() then
+            cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
+            status = "FAKE YAW + "
+            end
+        end
     else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.84 then
         status = "FAKE YAW"
         ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
+        if contains(ui.get(misc_combobox), "Jitter roll in air") then
+            if inair() then
+            cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
+            status = "FAKE YAW + "
+            end
+        end
     else status = "OVERLAPED"
         return end
 end
@@ -1063,16 +1089,11 @@ local overlap = function(cmd)
     if ( not entity_is_alive( local_player ) ) then
         return     
     end
-    detection()
+
     if not is_rolling then return end 
     if cmd.chokedcommands ~= 0 then return end
-    if contains(ui.get(misc_combobox), "Avoid Overlap") and anti_aim.get_overlap(rotation) < 0.95 then
-        ui.set(references.body_yaw[1], "Opposite")
-        ui.set(references.yaw[2], anti_aim.get_desync(1) > 0 and -5 or 5)
-        ui.set(references.body_yaw[2], antiaim_yaw_jitter_abs() and 80 or -80)
-        ui.set(slider_roll, antiaim_yaw_jitter_abs() and 50 or -50)
-        ui.set(b.in_air_roll, antiaim_yaw_jitter_abs() and 50 or -50)
-        else
+    detection()
+    if contains(ui.get(misc_combobox), "Jitter roll in air") and anti_aim.get_overlap(rotation) < 0.75 and inair() then
     end
 end
 
