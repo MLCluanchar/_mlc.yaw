@@ -970,7 +970,7 @@ local function antiaim_yaw_jitter(a,b)
 end
 
 local fake_yaw = 0
-local status
+local status = "WAITING"
 local function static()
     ui.set(references.yaw[1], "180")
     ui.set(references.yaw_base, "At targets")
@@ -1033,7 +1033,7 @@ client.set_event_callback('setup_command', function(cmd)
         if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
             if inair() then
             cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
-            status = "FAKE YAW + "
+            status = "FAKE YAW +"
             end
         end
     else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.77 then
@@ -1042,7 +1042,7 @@ client.set_event_callback('setup_command', function(cmd)
         if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
             if inair() then
             cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
-            status = "FAKE YAW + "
+            status = "FAKE YAW +"
             end
         end
     else status = "OVERLAPED"
@@ -1067,7 +1067,7 @@ client.set_event_callback('setup_command', function(cmd)
         if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
             if inair() then
             cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
-            status = "FAKE YAW + "
+            status = "FAKE YAW +"
             end
         end
     else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.84 then
@@ -1076,7 +1076,7 @@ client.set_event_callback('setup_command', function(cmd)
         if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
             if inair() then
             cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
-            status = "FAKE YAW + "
+            status = "FAKE YAW +"
             end
         end
     else status = "OVERLAPED"
@@ -1352,6 +1352,12 @@ client.set_event_callback(
             renderer.text(center_x + ani.speed_offset / 6 + 2, center_y + 43, rr, gr, br, ani.alpha, "-", nil, speed_text)
 
             local state = gradient_text(253, 162, 180, 255, 64, 224, 208, 255, "FAKE ANGLE +")
+            local fake_yaw = gradient_text(184, 187, 230, 255, 184, 187, 230, 255, status)
+            if status == "FAKE YAW +" then
+                fake_yaw = gradient_text(184, 187, 230, 255, 253, 162, 180, 255, status)
+            else
+                fake_yaw = gradient_text(184, 187, 230, 255, 184, 187, 230, 255, status)
+            end
             if fake_angle == true and is_rolling == true then
                 renderer.text(center_x, center_y + 43 + ani.offset, 253, 162, 180, 255, "-", nil, state)
                 else if fake_angle == true  then
@@ -1359,7 +1365,7 @@ client.set_event_callback(
                     else if  is_rolling == true then
                         renderer.text(center_x, center_y + 43 + ani.offset, 253, 162, 180, 255, "-", nil, detections)
                         else if Jittering == true then
-                            renderer.text(center_x, center_y + 43 + ani.offset, 184, 187, 230, 255, "-", nil, antiaim_state)
+                            renderer.text(center_x, center_y + 43 + ani.offset, 184, 187, 230, 255, "-", nil, fake_yaw)
                             else if Jittering == false and fake_angle == false and is_rolling == false then
                                 renderer.text(center_x, center_y + 43 + ani.offset, 255, 255, 255, 255, "-", nil, "WAITING...")
                             end
