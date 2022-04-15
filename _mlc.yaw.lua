@@ -247,14 +247,17 @@ local TIME = 0
 local gamerules_ptr = client.find_signature("client.dll", "\x83\x3D\xCC\xCC\xCC\xCC\xCC\x74\x2A\xA1")
 local gamerules = ffi.cast("intptr_t**", ffi.cast("intptr_t", gamerules_ptr) + 2)[0]
 local is_valve_spoof = false
+local ticks_user = ui.reference("misc", "settings", "sv_maxusrcmdprocessticks")
 client.set_event_callback("setup_command", function()
     local is_valve_ds = ffi.cast('bool*', gamerules[0] + 124)
     if is_valve_ds ~= nil then
         if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then
             is_valve_ds[0] = 0
             is_valve_spoof = true
+            ui.set(ticks_user, 7)
         else 
             is_valve_spoof = false
+            ui.set(ticks_user, 18)
         end
     end
 end)
@@ -377,7 +380,7 @@ local function hide_keys()
 end
 --------------------Main Functions for Rolling--------------------
 local is_rolling = false
-client.set_event_callback("setup_command", function(cmd)
+client.set_event_callback("run_command", function(cmd)
         hide_keys()
         stamina_bind()
         hit_bind()
@@ -434,7 +437,6 @@ client.set_event_callback("setup_command", function(cmd)
                 --return
                 --end
                 pUserCmd.viewangles.roll = roll_bind()
-
                 --    g_ForwardMove = pUserCmd.forwardmove
                 --    g_SideMove = pUserCmd.sidemove
                 --    g_pOldAngles = vector(pUserCmd.viewangles.pitch, pUserCmd.viewangles.yaw, pUserCmd.viewangles.roll)
@@ -450,7 +452,6 @@ client.set_event_callback("setup_command", function(cmd)
 end)
 
 --------------------Main Functions for fake angle--------------------
-local ticks_user = ui.reference("misc", "settings", "sv_maxusrcmdprocessticks")
 local speed_slider = ui.new_slider("AA", "Anti-aimbot angles", "Fake Angle Speed Trigger", 0, 250, 10, true, " ")
 local fake_angle = false
 local num = 90
@@ -458,8 +459,8 @@ local reverse_num = 180
 client.set_event_callback(
     "setup_command",
     function(cmd)
+        if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then return end
         ui.set(references.fake_lag_limit, 15)
-        ui.set(ticks_user, 18)
         local speed = velocity()
         fake_angle = false
         if contains(ui.get(Exploit_mode_combobox), "Fake Angle") then
@@ -631,6 +632,7 @@ local box, key = ui.reference( 'Rage', 'Other', 'Quick peek assist' )
 
 local is_tp
 function teleport()
+    if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then return end
     local getstate = ui.get(b.teleport_key) and not ui.get(fakeducking) 
     local is_tp = getstate
     ui.set(key, getstate and 'On hotkey' or 'On hotkey')
@@ -947,6 +949,9 @@ if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
             end
         end
     end
+    if detections == "DORMANCY" then
+        ui.set(slider_roll, anti_aim.get_desync(1) > 0 and 50 or -50)
+    end
 end
 
 -- this is the end of a function for detecting whether the enemy is peeking the local player
@@ -1036,7 +1041,8 @@ client.set_event_callback('setup_command', function(cmd)
             status = "FAKE YAW +"
             end
         end
-    else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.77 then
+    else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.9 then
+        print(anti_aim.get_overlap(rotation))
         status = "FAKE YAW"
         ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
         if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
