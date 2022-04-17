@@ -432,7 +432,7 @@ client.set_event_callback("run_command", function(cmd)
                 --if wepaon_id == 64 and bit_band(pUserCmd.buttons, buttons_e.attack_2) > 0 then
                 --return
                 --end
-                local real_slide = (velocity() - 130)
+                local real_slide = (velocity() - 110)
                 if real_slide < 0 then real_slide = 0 end
                 local revsered = 100 - real_slide
                 local divide = revsered / 2
@@ -440,7 +440,8 @@ client.set_event_callback("run_command", function(cmd)
                 if velocity() < 120 then
                     ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -1 * (50) or 50)
                 end
-                if velocity() > 130 and velocity() < 250 and not inair() then
+                if on_hit() <= 0.8 then is_rolling = false return end
+                if velocity() > 130 and velocity() < 250 and not inair()  then
                      ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -1 * (divide) or (divide))
                 end
                 if inair() then
