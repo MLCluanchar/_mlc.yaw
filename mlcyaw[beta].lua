@@ -445,7 +445,12 @@ client.set_event_callback("run_command", function(cmd)
                      ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -1 * (divide) or (divide))
                 end
                 if inair() then
-                    ui.set(slider_roll, anti_aim.get_desync(1) > 0 and 50 or -1 * (50))
+                    if anti_aim.get_overlap(rotation) < 0.8 then
+                        is_rolling = true
+                        ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -1 * (50) or 50)
+                    else
+                        ui.set(slider_roll, 0)
+                    end
                 end
 
                 if air_status() == 0 and not ui.get(key3) and speed >= hit_bind() and recovery >= stamina_bind() and Ladder_status() == 0 then
@@ -981,13 +986,14 @@ local vars = {
     chocking = 0
 }
 
-local function antiaim_yaw_jitter(a,b)
+function antiaim_yaw_jitter(a,b)
     if globals.tickcount() - vars.y_vars > 1  then
         vars.y_reversed = vars.y_reversed == 1 and 0 or 1
         vars.y_vars = globals.tickcount()
     end
     return vars.y_reversed >= 1 and a or b
 end
+ 
 
 local fake_yaw = 0
 local status = "WAITING"
@@ -1009,7 +1015,7 @@ if globals_realtime() >= TIME then
     ui.set(references.body_yaw[1], "Jitter")
     ui.set(references.body_yaw[2], 0)
     ui.set(ref.aa.freestanding_body_yaw, false)
-    if velocity() > 200 then
+    if velocity() > 200 and not inair() then
         ui.set(ref.aa.jitter[2], math.random(60,80))
     else
         ui.set(ref.aa.jitter[2], 29)
