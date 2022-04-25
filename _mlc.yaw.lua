@@ -662,7 +662,6 @@ client.set_event_callback("run_command", function(cmd)
             end
 
         if contains(ui.get(Exploit_mode_combobox), "Untrusted pitch") then
-            print(math.random(1,3))
             if inair() or velocity() < 3 then 
             is_rolling = true
             local angles = {client.camera_angles()}
@@ -670,6 +669,7 @@ client.set_event_callback("run_command", function(cmd)
             --ui.set(slider_roll, 60)
             pUserCmd.viewangles.pitch = 150
             pUserCmd.viewangles.yaw = angles[2] + state
+            pUserCmd.viewangles.roll = 80
             end
         else
             --is_rolling = false
@@ -678,26 +678,6 @@ client.set_event_callback("run_command", function(cmd)
 
 end)
 
-client.set_event_callback("setup_command", function(cmd)
-    if contains(ui.get(Exploit_mode_combobox), "Untrusted pitch") then
-        if (math.abs(cmd.forwardmove) > 1) or (math.abs(cmd.sidemove) > 1) or cmd.in_jump == 1 then
-            return
-        end
-    
-        if (entity.get_prop(entity.get_local_player(), "m_MoveType") or 0) == 9 then --ladder fix
-            return
-        end
-    
-        local desync_amount = anti_aim.get_desync(2)
-
-        if desync_amount == nil then
-            return
-        end
-        
-        cmd.forwardmove = 0
-        cmd.in_forward = 1
-    end
-end)
 --------------------Main functions for LBY
 
 local lean_lby = function(cmd)
@@ -727,10 +707,10 @@ local lean_lby = function(cmd)
 
     ::skip::
 
-    if velocity() > 80 and not inair() then return end
-
-    cmd.forwardmove = 0
-    cmd.in_forward = 1
+        if inair() or velocity() < 50 then 
+            cmd.forwardmove = 0
+            cmd.in_forward = 1
+        end
     end
 
 end
