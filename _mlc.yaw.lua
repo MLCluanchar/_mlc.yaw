@@ -969,27 +969,18 @@ end
 
 -- this is the end of a function for detecting whether the enemy is peeking the local player
 
-local vars = {
-    y_reversed = 1,
-    by_reversed = 1,
 
-    by_vars = 0,
-    y_vars = 0,
-    chocke = 0,
-    chocking = 0
-}
 
-local function antiaim_yaw_jitter(a,b)
-    if globals.tickcount() - vars.y_vars > 1  then
-        vars.y_reversed = vars.y_reversed == 1 and 0 or 1
-        vars.y_vars = globals.tickcount()
-    end
-    return vars.y_reversed >= 1 and a or b
-end
 
 local fake_yaw = 0
 local status = "WAITING"
 
+local function antiaim_yaw_jitter(a,b)
+    local desync = entity_get_prop(entity_get_local_player(), "m_flPoseParameter", 11) * 120 - 60
+    local overlap = anti_aim.get_overlap(rotation)
+    status = (overlap > 0.7 and "FAKE YAW +/-") or "OVERLAP-"
+    return (desync < 0 and overlap > 0.6 and a or b)
+end
 -----this is pretty scuff i will make a better one recently
 local yaw_left
 local yaw_right
@@ -1012,7 +1003,7 @@ local function antiaim_logic()
 		    preset_state = 'MOVING(DT)'
             yaw_left = 20
             yaw_right = -14
-            jitter_set = 42
+            jitter_set = 53
         else
             --FAKE LAG HIGH SPEED
             preset_state = 'MOVING(FL)'
@@ -1046,6 +1037,7 @@ local function antiaim_logic()
 	end
 	
 end
+
 
 local function static()
     ui.set(references.yaw[1], "180")
@@ -1082,99 +1074,12 @@ client.set_event_callback('setup_command', function(cmd)
                 Jittering = true
                 antiaim_state = status
                 jitter ()
+                ui.set(ref.aa.yaw[2], antiaim_yaw_jitter(yaw_left,yaw_right))
             end
         end
     end
 end)
 
-local function antiaim_yaw_jitter_abs()
-    return ui.get(references.yaw[2]) > 0
-end
-
-client.set_event_callback('setup_command', function(cmd)
-    -----------Moving overlap
-    --send packets can be considered not using it
-    local local_player = entity_get_local_player( )
-    if ( not entity_is_alive( local_player ) ) then
-        return     
-    end
-    ---------------------------------------------
-    if cmd.chokedcommands ~= 0 then return end
-    if velocity() < 120 then return end
-    if Jittering == false then return end
-    if not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then return end
-    if ui.get(references.jitter[2]) < 60 and anti_aim.get_overlap(rotation) > 0.77 then
-        status = "FAKE YAW +/-"
-        ui.set(references.yaw[2], antiaim_yaw_jitter(yaw_left,yaw_right))
-        if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
-            if inair() then
-            cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
-            status = "FAKE YAW +"
-            end
-        end
-    else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.9 then
-        print(anti_aim.get_overlap(rotation))
-        status = "FAKE YAW -"
-        ui.set(references.yaw[2], antiaim_yaw_jitter(yaw_left,yaw_right))
-        if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
-            if inair() then
-                cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
-                status = "FAKE YAW +"
-            end
-        end
-    else status = "OVERLAP-"
-        return end
-    end
-    end)
-
-client.set_event_callback('setup_command', function(cmd)
-    -----------Standing overlap
-    --send packets can be considered not using it
-    local local_player = entity_get_local_player( )
-    if ( not entity_is_alive( local_player ) ) then
-        return     
-    end
-    ---------------------------------------------
-    if velocity() > 120 then return end
-    if Jittering == false then return end
-    if not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then return end
-    if ui.get(references.jitter[2]) < 60 and anti_aim.get_overlap(rotation) > 0.63 then
-        status = "FAKE YAW +/-"
-        ui.set(references.yaw[2], antiaim_yaw_jitter(yaw_left,yaw_right))
-        if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
-            if inair() then
-            cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
-            status = "FAKE YAW +"
-            end
-        end
-    else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.84 then
-        status = "FAKE YAW"
-        ui.set(references.yaw[2], antiaim_yaw_jitter(yaw_left,yaw_right))
-        if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
-            if inair() then
-            cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
-            status = "FAKE YAW +"
-            end
-        end
-    else status = "OVERLAPPED-"
-        return end
-end
-end)
-
-local overlap = function(cmd)
-    local local_player = entity_get_local_player( )
-    if ( not entity_is_alive( local_player ) ) then
-        return     
-    end
-
-    if not is_rolling then return end 
-    if cmd.chokedcommands ~= 0 then return end
-    detection()
-    if contains(ui.get(misc_combobox), "Jitter roll in air") and anti_aim.get_overlap(rotation) < 0.75 and inair() then
-    end
-end
-
-client.set_event_callback('setup_command', overlap)
 -------------------------Logging-----------------------------
 
 local function KaysFunction(A,B,C)
