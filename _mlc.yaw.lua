@@ -1069,6 +1069,7 @@ client.set_event_callback('setup_command', function(cmd)
     if contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
         if is_rolling == true or fake_angle == true then
             static()
+            detection()
             Jittering = false
             else if is_rolling == false or fake_angle == false and not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
                 Jittering = true
