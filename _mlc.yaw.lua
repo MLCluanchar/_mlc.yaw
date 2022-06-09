@@ -185,7 +185,7 @@ local onshot, onshotkey = ui.reference('aa', 'other', 'On shot anti-aim')
 local function on_setup_command(cmd)
     g_pOldAngles = vector(cmd.pitch, cmd.yaw, cmd.roll)
 end
-local slider_adjust = ui.new_slider("AA", "Anti-aimbot angles", "Roll Angle", 0, 90, 50, true, "°")
+local slider_adjust = ui.new_slider("AA", "Anti-aimbot angles", "Roll", 0, 90, 50, true, "")
 local slider_roll = ui.new_slider("AA", "Anti-aimbot angles", "Roll Angle", -90, 90, 50, true, "°")
 
 ui.set_visible(slider_roll, false)

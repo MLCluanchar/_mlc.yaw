@@ -178,20 +178,30 @@ local references = {
     -- misc references
     untrust = ui.reference("MISC", "Settings", "Anti-untrusted"),
     sv_maxusrcmdprocessticks = ui.reference("MISC", "Settings", "sv_maxusrcmdprocessticks"),
+    third = ui.reference("Visuals", "Effects", "Force Third Person (alive)")
     -- end of menu references and menu creation
 }
 local onshot, onshotkey = ui.reference('aa', 'other', 'On shot anti-aim')
-
 local function on_setup_command(cmd)
     g_pOldAngles = vector(cmd.pitch, cmd.yaw, cmd.roll)
 end
+local slider_adjust = ui.new_slider("AA", "Anti-aimbot angles", "Roll Angle", 0, 90, 50, true, "°")
 local slider_roll = ui.new_slider("AA", "Anti-aimbot angles", "Roll Angle", -90, 90, 50, true, "°")
+
+ui.set_visible(slider_roll, false)
+local function anti_untrust()
+    ui.set(references.untrust, (ui.get(slider_adjust) < 51))
+end
+
+client.set_event_callback('setup_command', anti_untrust)
 local Exploit_mode_combobox =
     ui.new_multiselect(
     "AA",
     "Anti-aimbot angles",
     "Enable Exploit",
     "Roll Angle",
+    "Untrusted pitch",
+    "Lower body yaw",
     "Fake Angle",
     "Fake Yaw",
     "\aB6B665FFValve Server Bypass"
@@ -229,11 +239,31 @@ local b = {
 
 local key3 = ui.new_hotkey("AA", "Anti-aimbot angles", "Force Rolling Angle on Key (Speed Decrease)")
 
+local untrust = { 
+    key_left = ui.new_hotkey("AA", "Anti-aimbot angles", "Override Untrust Left"),
+    key_right = ui.new_hotkey("AA", "Anti-aimbot angles", "Override Untrust Right")
+}
+
+ui.set_visible(untrust.key_left, false)
+ui.set_visible(untrust.key_right, false)
+
 local function velocity()
     local me = entity_get_local_player()
     local velocity_x, velocity_y = entity_get_prop(me, "m_vecVelocity")
     return math.sqrt(velocity_x ^ 2 + velocity_y ^ 2)
 end
+
+local tag = {
+
+
+    enabled = ui.new_checkbox("AA", "Anti-aimbot angles", "Enable Costum tag"),
+
+    label = ui.new_label("AA", "Anti-aimbot angles", "Custom lua tag"),
+
+    name = ui.new_textbox("AA", "Anti-aimbot angles", "   "),
+
+}
+
 
 ui.set_visible(b.velocity_slider, false)
 ui.set_visible(b.stamina_slider, false)
@@ -241,6 +271,7 @@ ui.set_visible(b.checkbox_hitchecker, false)
 ui.set_visible(b.in_air_roll, false)
 ui.set_visible(references.roll[1], false)
 ui.set_visible(b.checkbox_hitchecker, false)
+
 local TIME = 0
 
 -----------------Valve Sever Bypasser-----------------
@@ -257,7 +288,7 @@ client.set_event_callback("setup_command", function()
             ui.set(ticks_user, 7)
         else 
             is_valve_spoof = false
-            ui.set(ticks_user, 18)
+            ui.set(ticks_user, 17)
         end
     end
 end)
@@ -387,8 +418,12 @@ client.set_event_callback("run_command", function(cmd)
         local speed = velocity()
         local recovery = stamina()
         if contains(ui.get(Exploit_mode_combobox), "Roll Angle") then
-        
+            if air_status() == 0 and not ui.get(key3) and speed >= hit_bind() and recovery >= stamina_bind() and Ladder_status() == 0 then
+                is_rolling = false
+                return
+            end
                 -- your aa
+                is_rolling = true
                 local local_player = entity_get_local_player()
                 if not entity_is_alive(local_player) then
                     return
@@ -432,31 +467,21 @@ client.set_event_callback("run_command", function(cmd)
                 --if wepaon_id == 64 and bit_band(pUserCmd.buttons, buttons_e.attack_2) > 0 then
                 --return
                 --end
-                local real_slide = (velocity() - 110)
-                if real_slide < 0 then real_slide = 0 end
-                local revsered = 100 - real_slide
-                local divide = revsered / 2
-                if divide < 10 then divide = 10 end
-                if velocity() < 120 then
-                    ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -1 * (50) or 50)
-                end
-                if on_hit() <= 0.8 then is_rolling = false return end
-                if velocity() > 130 and velocity() < 250 and not inair()  then
-                     ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -1 * (divide) or (divide))
-                end
-                if inair() then
-                    if anti_aim.get_overlap(rotation) < 0.8 then
-                        is_rolling = true
-                        ui.set(slider_roll, anti_aim.get_desync(1) > 0 and -1 * (50) or 50)
-                    else
-                        ui.set(slider_roll, 0)
-                    end
-                end
 
-                if air_status() == 0 and not ui.get(key3) and speed >= hit_bind() and recovery >= stamina_bind() and Ladder_status() == 0 then
-                    is_rolling = false
+                if contains(ui.get(Exploit_mode_combobox), "Untrusted pitch") then
+                    if inair() or velocity() < 3 then 
+                        is_rolling = true
+                        local angles = {client.camera_angles()}
+                        local key_states = (ui.get(untrust.key_left) and -90) or (ui.get(untrust.key_right) and 90) or 0
+                        local state = anti_aim.get_desync(1) > 0 and 180 or -180
+                        pUserCmd.viewangles.pitch = 150
+                        pUserCmd.viewangles.yaw = angles[2] + state + key_states
+                        ui.set_visible(untrust.key_left, true)
+                        ui.set_visible(untrust.key_right, true)
+                    end
                 else
-                    is_rolling = true
+                    ui.set_visible(untrust.key_left, false)
+                    ui.set_visible(untrust.key_right, false)
                 end
                 pUserCmd.viewangles.roll = roll_bind()
                 --    g_ForwardMove = pUserCmd.forwardmove
@@ -710,16 +735,17 @@ end
 
 local function left_peek()
     ui.set(references.body_yaw[1], "Static")
-    ui.set(references.yaw[2],  -15)
-    ui.set(references.body_yaw[2], -80)
-
+    ui.set(references.yaw[2],  -7)
+    ui.set(references.body_yaw[2], -180)
+    ui.set(slider_roll, ui.get(slider_adjust))
     ui.set(b.in_air_roll, 50)
     ui.set(references.jitter[2], 0)
 end
 local function right_peek()
     ui.set(references.body_yaw[1], "Static")
-    ui.set(references.yaw[2],  15)
-    ui.set(references.body_yaw[2], 80)
+    ui.set(references.yaw[2],  7)
+    ui.set(references.body_yaw[2], 180)
+    ui.set(slider_roll, -(ui.get(slider_adjust)))
     ui.set(b.in_air_roll, -50)
     ui.set(references.jitter[2], 0)
 end
@@ -971,32 +997,141 @@ if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
         end
     end
     if detections == "DORMANCY" then
+        ui.set(slider_roll, anti_aim.get_desync(1) > 0 and ui.get(slider_adjust) or -(ui.get(slider_adjust)))
     end
 end
 
 -- this is the end of a function for detecting whether the enemy is peeking the local player
 
-local vars = {
-    y_reversed = 1,
-    by_reversed = 1,
 
-    by_vars = 0,
-    y_vars = 0,
-    chocke = 0,
-    chocking = 0
-}
 
-function antiaim_yaw_jitter(a,b)
-    if globals.tickcount() - vars.y_vars > 1  then
-        vars.y_reversed = vars.y_reversed == 1 and 0 or 1
-        vars.y_vars = globals.tickcount()
-    end
-    return vars.y_reversed >= 1 and a or b
-end
- 
 
 local fake_yaw = 0
 local status = "WAITING"
+
+local function antiaim_yaw_jitter(a,b)
+    local desync = entity_get_prop(entity_get_local_player(), "m_flPoseParameter", 11) * 120 - 60
+    local overlap = anti_aim.get_overlap(rotation)
+    status = (overlap > 0.7 and "FAKE YAW +/-") or "OVERLAP-"
+    return (desync < 0 and overlap > 0.6 and a or b)
+end
+-----this is pretty scuff i will make a better one recently
+local yaw_left
+local yaw_right
+local jitter_set
+local preset_state = 'wait'
+
+
+local function lean_lby(cmd, status)
+
+    --something important is minified but i dont want to waste time on deleting to seperate those
+
+    if (entity.get_prop(entity.get_local_player(), "m_MoveType") or 0) == 9 then return end
+
+    local lean_bodyyaw = anti_aim.get_desync(2)
+
+    if lean_bodyyaw == nil then return end
+    
+
+
+    -------------Ignoring nades
+    local local_player = entity_get_local_player()
+    local my_weapon = entity.get_player_weapon(local_player)
+    local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
+    local is_grenade =
+        ({
+        [43] = true,
+        [44] = true,
+        [45] = true,
+        [46] = true,
+        [47] = true,
+        [48] = true,
+        [68] = true
+    })[wepaon_id] or false
+    
+    if is_grenade then
+        if cmd.in_attack == 1 or cmd.in_attack2 == 1 then return end
+    end
+
+    -----------------Ignore grenade end
+
+    if math.abs(anti_aim.get_desync(2)) < 15 or cmd.chokedcommands == 0 then return end
+
+    ::ignore::
+
+
+    if ui.get(references.quick_peek[2]) then return end
+
+    if velocity() > 50 then return end
+
+    cmd.in_forward = status
+
+    --handling standalone quick stop without using cmd
+
+
+    local w = client.key_state(0x57)
+    local s = client.key_state(0x53)
+    local space = client.key_state(0x20)
+
+    --local resgine = (velocity() < 50 and not w and not contains(ui.get(aa.combobox_antiaim), "LBY Breaker") and not s and not space and 1) or 0
+
+    --cmd.forwardmove = 0
+
+end
+
+
+local function antiaim_logic()
+
+	local local_player = entity.get_local_player()
+	
+	if not entity.is_alive(local_player) then
+		return
+	end
+
+	--standing->moving->inair
+    -------------------Velocity is speed check
+	if velocity() > 90 then
+        if ui.get(references.doubletap[2]) then
+            --DT HIGH SPEED
+		    preset_state = 'MOVING(DT)'
+            yaw_left = 20
+            yaw_right = -14
+            jitter_set = 53
+        else
+            --FAKE LAG HIGH SPEED
+            preset_state = 'MOVING(FL)'
+            yaw_left = 0
+            yaw_right = 0
+            jitter_set = 0
+        end
+	else
+        if ui.get(references.doubletap[2]) then
+            --DT LOW SPEED
+		    preset_state = 'STANDING(DT)'
+            yaw_left = -15
+            yaw_right = 15
+            jitter_set = 54
+        else
+            --FAKE LAG STANDING
+            preset_state = 'STANDING(FL)'
+            yaw_left = 0
+            yaw_right = 0
+            jitter_set = 0
+        end
+    end
+
+	if inair() then
+        --IN AIR
+		preset_state = 'INAIR'
+        yaw_left = -12
+        yaw_right = 6
+        jitter_set = 53
+		ui.set(references.body_yaw[2], 5)
+	end
+	
+end
+
+
 local function static()
     ui.set(references.yaw[1], "180")
     ui.set(references.yaw_base, "At targets")
@@ -1004,22 +1139,19 @@ local function static()
     TIME = globals_realtime() + 0.12
 end
 local function jitter()
+    antiaim_logic()
     local pulse_m = math.sin(math.abs((math.pi * -1) + (globals.curtime() * (1 / 0.35)) % (math.pi * 2))) * 60
     if pulse_m > 59 then pulse_m = 0 end
-    ui.set(ref.aa.fyaw_limit, math.random(30,60))
+    ui.set(ref.aa.fyaw_limit, 60)
 if globals_realtime() >= TIME then
     --ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
     ui.set(ref.aa.jitter[1], "Center")
     ui.set(ref.aa.pitch, "Minimal")
     ui.set(ref.aa.yaw[1], "180")
     ui.set(references.body_yaw[1], "Jitter")
+    ui.set(ref.aa.jitter[2], jitter_set)
     ui.set(references.body_yaw[2], 0)
     ui.set(ref.aa.freestanding_body_yaw, false)
-    if velocity() > 200 and not inair() then
-        ui.set(ref.aa.jitter[2], math.random(60,80))
-    else
-        ui.set(ref.aa.jitter[2], 29)
-    end
     TIME = globals_realtime() + 0.09
 end
 end
@@ -1027,107 +1159,29 @@ local antiaim_state
 local Jittering = false
 client.set_event_callback('setup_command', function(cmd)
     Jittering = false
+    detection()
+
+    if contains(ui.get(Exploit_mode_combobox), "Lower body yaw") then
+        lean_lby(cmd, 1)
+    else
+        lean_lby(cmd, 0)
+    end
+
     if contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
         if is_rolling == true or fake_angle == true then
             static()
+            print()
             Jittering = false
             else if is_rolling == false or fake_angle == false and not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
                 Jittering = true
                 antiaim_state = status
                 jitter ()
+                ui.set(ref.aa.yaw[2], antiaim_yaw_jitter(yaw_left,yaw_right))
             end
         end
     end
 end)
 
-local function antiaim_yaw_jitter_abs()
-    return ui.get(references.yaw[2]) > 0
-end
-
-
-client.set_event_callback('setup_command', function(cmd)
-    -----------Moving overlap
-    --send packets can be considered not using it
-    local local_player = entity_get_local_player( )
-    if ( not entity_is_alive( local_player ) ) then
-        return     
-    end
-    ---------------------------------------------
-    if cmd.chokedcommands ~= 0 then return end
-    if velocity() < 120 then return end
-    if Jittering == false then return end
-    if not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then return end
-    if ui.get(references.jitter[2]) < 60 and anti_aim.get_overlap(rotation) > 0.77 then
-        status = "FAKE YAW"
-        ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
-        if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
-            if inair() then
-            cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
-            status = "FAKE YAW +"
-            end
-        end
-    else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.9 then
-        status = "FAKE YAW"
-        ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
-        if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
-            if inair() then
-            cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
-            status = "FAKE YAW +"
-            end
-        end
-    else status = "OVERLAPED"
-        return end
-    end
-    end)
-
-client.set_event_callback('setup_command', function(cmd)
-    -----------Standing overlap
-    --send packets can be considered not using it
-    local local_player = entity_get_local_player( )
-    if ( not entity_is_alive( local_player ) ) then
-        return     
-    end
-    ---------------------------------------------
-    if velocity() > 120 then return end
-    if Jittering == false then return end
-    if not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then return end
-    if ui.get(references.jitter[2]) < 60 and anti_aim.get_overlap(rotation) > 0.63 then
-        status = "FAKE YAW"
-        ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
-        if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
-            if inair() then
-            cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
-            status = "FAKE YAW +"
-            end
-        end
-    else if ui.get(references.jitter[2]) > 60 and anti_aim.get_overlap(rotation) > 0.84 then
-        status = "FAKE YAW"
-        ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
-        if contains(ui.get(misc_combobox), "Roll with Fake yaw(air)") then
-            if inair() then
-            cmd.roll = antiaim_yaw_jitter_abs() and -50 or 50
-            status = "FAKE YAW +"
-            end
-        end
-    else status = "OVERLAPED"
-        return end
-end
-end)
-
-local overlap = function(cmd)
-    local local_player = entity_get_local_player( )
-    if ( not entity_is_alive( local_player ) ) then
-        return     
-    end
-
-    if not is_rolling then return end 
-    if cmd.chokedcommands ~= 0 then return end
-    detection()
-    if contains(ui.get(misc_combobox), "Jitter roll in air") and anti_aim.get_overlap(rotation) < 0.75 and inair() then
-    end
-end
-
-client.set_event_callback('setup_command', overlap)
 -------------------------Logging-----------------------------
 
 local function KaysFunction(A,B,C)
@@ -1203,18 +1257,24 @@ local ani = {
     manual_lef = 0,
     manual_right = 0,
     -----------
-    LBY = 0
+    LBY = 0,
+    -----------
+    third = 0,
+    third1 = 0
 }
 function lerp(start, vend, time)
 return start + (vend - start) * time end
 
 -------------Indicators
 
-local ss = {client.screen_size()}
-local center_x, center_y = ss[1] / 2, ss[2] / 2 
+
 client.set_event_callback(
     "paint",
     function(e)
+
+        local ss = {client.screen_size()}
+        local center_x, center_y = ss[1] / 2, ss[2] / 2
+
         if contains(ui.get(misc_combobox), "Debug Tools") then
             local overlap_out = math.floor(100 *anti_aim.get_overlap(rotation))
 
@@ -1232,6 +1292,7 @@ client.set_event_callback(
                 end
             end
 
+            renderer.text(center_x + 50, center_y + 15, r5, g5, b5, 255, " ", nil, "antiaim state:"..preset_state)
             renderer.text(center_x + 50, center_y + 35, r5, g5, b5, 255, " ", nil, "("..overlap_out.."%)")
             renderer.text(center_x + 50, center_y + 45, r5, g5, b5, 255, " ", nil, "Roll:")
             renderer.text(center_x + 73, center_y + 45, r5, g5, b5, 255, " ", nil, is_rolling)
@@ -1267,7 +1328,7 @@ client.set_event_callback(
         end
 
         if inair() then
-            speed_text = "AIR"
+            speed_text = "AIR+"
             else if velocity() <= 250 then
                 speed_text = math.floor(velocity())
             end
@@ -1281,25 +1342,25 @@ client.set_event_callback(
         local tp_check = ui.get(b.teleport_key) and 100 or 6
         if ui.get(references.doubletap[2]) then
             ani.dt = math.floor(lerp(ani.dt,255,globals.frametime() * 6))
-            ani.dt_offset = math.floor(lerp(ani.dt_offset,250,globals.frametime() * tp_check))
-            ani.dt_offset_exp = math.floor(lerp(ani.dt_offset_exp,250,globals.frametime() * 6))
+            ani.dt_offset = (lerp(ani.dt_offset,255,globals.frametime() * tp_check))
+            ani.dt_offset_exp = (lerp(ani.dt_offset_exp,255,globals.frametime() * 6))
         else
-            ani.dt = math.floor(lerp(ani.dt,0,globals.frametime() * 8))
-            ani.dt_offset = math.floor(lerp(ani.dt_offset, 0,globals.frametime() * 1))
-            ani.dt_offset_exp = math.floor(lerp(ani.dt_offset_exp,0,globals.frametime() * 6))
+            ani.dt = (lerp(ani.dt,0,globals.frametime() * 8))
+            ani.dt_offset = (lerp(ani.dt_offset, 0,globals.frametime() * 1))
+            ani.dt_offset_exp = (lerp(ani.dt_offset_exp,0,globals.frametime() * 6))
         end
 
         if ani.dt_offset > 230 then ani.dt_offset = 230 end
         if ani.dt_offset_exp > 230 then ani.dt_offset_exp = 230 end
 
         if ui.get(onshotkey) then
-            ani.hide = math.floor(lerp(ani.hide,255,globals.frametime() * 6))
-            ani.hide_offset = math.floor(lerp(ani.hide_offset,255,globals.frametime() * 6))
-            ani.hide_offset_exp = math.floor(lerp(ani.hide_offset_exp,268,globals.frametime() * 6))
+            ani.hide = (lerp(ani.hide,255,globals.frametime() * 6))
+            ani.hide_offset = (lerp(ani.hide_offset,255,globals.frametime() * 6))
+            ani.hide_offset_exp = (lerp(ani.hide_offset_exp,268,globals.frametime() * 6))
         else
             ani.hide = math.floor(lerp(ani.hide,0,globals.frametime() * 6))
-            ani.hide_offset = math.floor(lerp(ani.hide_offset,0,globals.frametime() * 3.5))
-            ani.hide_offset_exp = math.floor(lerp(ani.hide_offset_exp,0,globals.frametime() * 3.5))
+            ani.hide_offset = (lerp(ani.hide_offset,0,globals.frametime() * 3.5))
+            ani.hide_offset_exp = (lerp(ani.hide_offset_exp,0,globals.frametime() * 3.5))
         end
 
         if ani.hide_offset > 230 then ani.dt_offset = 230 end
@@ -1307,12 +1368,12 @@ client.set_event_callback(
 
         if ui.get(references.fba_key) then
             ani.baim = math.floor(lerp(ani.baim,255,globals.frametime() * 6))
-            ani.baim_offset = math.floor(lerp(ani.baim,255,globals.frametime() * 6))
-            ani.baim_offset_exp = math.floor(lerp(ani.baim,255,globals.frametime() * 6))
+            ani.baim_offset = (lerp(ani.baim,255,globals.frametime() * 6))
+            ani.baim_offset_exp = (lerp(ani.baim,262,globals.frametime() * 6))
         else
             ani.baim = math.floor(lerp(ani.baim,0,globals.frametime() * 6))
-            ani.baim_offset = math.floor(lerp(ani.baim,255,globals.frametime() * 3.5))
-            ani.baim_offset_exp = math.floor(lerp(ani.baim,0,globals.frametime() * 6))
+            ani.baim_offset = (lerp(ani.baim,255,globals.frametime() * 3.5))
+            ani.baim_offset_exp = (lerp(ani.baim,0,globals.frametime() * 6))
         end
     
         if ani.baim_offset > 230 then ani.baim_offset = 230 end
@@ -1320,10 +1381,10 @@ client.set_event_callback(
 
         if ui.get(references.fsp_key) then
             ani.safe = math.floor(lerp(ani.safe,255,globals.frametime() * 6))
-            ani.safe_offset = math.floor(lerp(ani.safe_offset,255,globals.frametime() * 6))
+            ani.safe_offset = (lerp(ani.safe_offset,255,globals.frametime() * 6))
         else
             ani.safe = math.floor(lerp(ani.safe,0,globals.frametime() * 6))
-            ani.safe_offset = math.floor(lerp(ani.safe_offset,0,globals.frametime() * 6))
+            ani.safe_offset = (lerp(ani.safe_offset,0,globals.frametime() * 6))
         end
 
         if ani.safe_offset > 230 then ani.safe_offset = 230 end
@@ -1335,6 +1396,14 @@ client.set_event_callback(
         end
         teleport()
         local local_player = entity.get_local_player()
+
+        
+
+        local cool = math.floor(ani.third)
+
+        local ss = {client.screen_size()}
+        local center_x, center_y = ss[1] / 2 + cool, ss[2] / 2 + ani.third1
+
         if contains(ui.get(b.indicators), "Status Netgraph") then
             local pulse = math.sin(math.abs((math.pi * -1) + (globals.curtime() * (1 / 0.35)) % (math.pi * 2))) * 255
             local r, g, b = 30, 255, 109
@@ -1376,13 +1445,15 @@ client.set_event_callback(
             end
 
     
-            local header = gradient_text(255, 255, 255, 255, r4, g4, b4, 255, "_MLC.YAW")
+            local header = gradient_text(255, 255, 255, 255, r4, g4, b4, 255, (ui.get(tag.enabled) and ui.get(tag.name)) or "MLC.YAW")
+            
             renderer.text(center_x, center_y + 35, 255, 255, 255, 255, "-", nil, header)
             m_render_engine.render_container(center_x + 2, center_y + 46, ani.speed_offset / 6, 5, rr, gr, br, ani.alpha)
             renderer.text(center_x + ani.speed_offset / 6 + 2, center_y + 43, rr, gr, br, ani.alpha, "-", nil, speed_text)
 
             local state = gradient_text(253, 162, 180, 255, 64, 224, 208, 255, "FAKE ANGLE +")
             local fake_yaw = gradient_text(184, 187, 230, 255, 184, 187, 230, 255, status)
+
             if status == "FAKE YAW +" then
                 fake_yaw = gradient_text(184, 187, 230, 255, 253, 162, 180, 255, status)
             else
@@ -1409,11 +1480,11 @@ client.set_event_callback(
             else
 
             end
-            local first_exp = ani.dt_offset_exp / 21
-            local second_exp = first_exp + ani.hide_offset_exp / 13
+            local first_exp = ani.dt_offset_exp / 22
+            local second_exp = first_exp + ani.hide_offset_exp / 12
             local third_exp = second_exp + ani.baim_offset_exp / 12
             renderer.text(center_x + 30 - ani.dt_offset / 7.67, center_y + 50 + ani.offset, 255 - ani.charged, 255, 255 - ani.charged, ani.dt, "-",nil, "DT")
-            renderer.text(center_x + 31 - ani.hide_offset / 7.67 + first_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.hide, "-",nil, "HIDE")
+            renderer.text(center_x + 34 - ani.hide_offset / 7.67 + first_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.hide, "-",nil, "HIDE")
             renderer.text(center_x + 31 - ani.baim_offset / 7.67 + second_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.baim, "-",nil, "BAIM")
             renderer.text(center_x + 32 - ani.safe_offset / 7.67 + third_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.safe, "-",nil, "SP")
     end
@@ -1565,13 +1636,13 @@ client.set_event_callback("setup_command", function(e)
     end
     if direction == 1 then
         ui.set(bodyyaw[2], 180)
-        ui.set(slider_roll, -50)
+        ui.set(slider_roll, -(ui.get(slider_adjust)))
     else
     end
 
     if direction == 2 then
         ui.set(bodyyaw[2], -180)
-        ui.set(slider_roll, 50)
+        ui.set(slider_roll, ui.get(slider_adjust))
     else
     end
     if manual_yaw[direction] == 0 then return end
