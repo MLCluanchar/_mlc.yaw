@@ -185,7 +185,15 @@ local onshot, onshotkey = ui.reference('aa', 'other', 'On shot anti-aim')
 local function on_setup_command(cmd)
     g_pOldAngles = vector(cmd.pitch, cmd.yaw, cmd.roll)
 end
+local slider_adjust = ui.new_slider("AA", "Anti-aimbot angles", "Roll Angle", 0, 90, 50, true, "°")
 local slider_roll = ui.new_slider("AA", "Anti-aimbot angles", "Roll Angle", -90, 90, 50, true, "°")
+
+ui.set_visible(slider_roll, false)
+local function anti_untrust()
+    ui.set(references.untrust, (ui.get(slider_adjust) < 51))
+end
+
+client.set_event_callback('setup_command', anti_untrust)
 local Exploit_mode_combobox =
     ui.new_multiselect(
     "AA",
@@ -703,7 +711,7 @@ local function left_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  -7)
     ui.set(references.body_yaw[2], -80)
-    ui.set(slider_roll, 50)
+    ui.set(slider_roll, ui.get(slider_adjust))
     ui.set(b.in_air_roll, 50)
     ui.set(references.jitter[2], 0)
 end
@@ -711,7 +719,7 @@ local function right_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  7)
     ui.set(references.body_yaw[2], 80)
-    ui.set(slider_roll, -50)
+    ui.set(slider_roll, -(ui.get(slider_adjust)))
     ui.set(b.in_air_roll, -50)
     ui.set(references.jitter[2], 0)
 end
@@ -963,7 +971,7 @@ if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
         end
     end
     if detections == "DORMANCY" then
-        ui.set(slider_roll, anti_aim.get_desync(1) > 0 and 50 or -50)
+        ui.set(slider_roll, anti_aim.get_desync(1) > 0 and ui.get(slider_adjust) or -(ui.get(slider_adjust)))
     end
 end
 
@@ -1066,10 +1074,11 @@ local antiaim_state
 local Jittering = false
 client.set_event_callback('setup_command', function(cmd)
     Jittering = false
+    detection()
     if contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
         if is_rolling == true or fake_angle == true then
             static()
-            detection()
+            print()
             Jittering = false
             else if is_rolling == false or fake_angle == false and not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
                 Jittering = true
@@ -1383,7 +1392,7 @@ client.set_event_callback(
             local second_exp = first_exp + ani.hide_offset_exp / 12
             local third_exp = second_exp + ani.baim_offset_exp / 12
             renderer.text(center_x + 30 - ani.dt_offset / 7.67, center_y + 50 + ani.offset, 255 - ani.charged, 255, 255 - ani.charged, ani.dt, "-",nil, "DT")
-            renderer.text(center_x + 34 - ani.hide_offset / 7.67 + first_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.hide, "-",nil, "HS")
+            renderer.text(center_x + 34 - ani.hide_offset / 7.67 + first_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.hide, "-",nil, "HIDE")
             renderer.text(center_x + 31 - ani.baim_offset / 7.67 + second_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.baim, "-",nil, "BAIM")
             renderer.text(center_x + 32 - ani.safe_offset / 7.67 + third_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.safe, "-",nil, "SP")
     end
@@ -1535,13 +1544,13 @@ client.set_event_callback("setup_command", function(e)
     end
     if direction == 1 then
         ui.set(bodyyaw[2], 180)
-        ui.set(slider_roll, -50)
+        ui.set(slider_roll, -(ui.get(slider_adjust)))
     else
     end
 
     if direction == 2 then
         ui.set(bodyyaw[2], -180)
-        ui.set(slider_roll, 50)
+        ui.set(slider_roll, ui.get(slider_adjust))
     else
     end
     if manual_yaw[direction] == 0 then return end
