@@ -1,10 +1,7 @@
-local bit_band = bit.band
 local anti_aim = require 'gamesense/antiaim_funcs'
 
 local ffi = require "ffi"
 local vector = require("vector")
-local ui_set = ui.set
-local globals_tickcount, globals_realtime = globals.tickcount, globals.realtime
 -- Libraries
 
 local buttons_e = {
@@ -57,6 +54,22 @@ local ref = {
 }
 local angle_t = ffi.typeof("struct { float pitch; float yaw; float roll; }")
 local vector3_t = ffi.typeof("struct { float x; float y; float z; }")
+local cast, typeof, cdef = ffi.cast, ffi.typeof, ffi.cdef
+
+
+local function isDefined(typ)
+	return (pcall(typeof, typ))
+end
+
+local function safeCdef(name, typedef)
+	if not isDefined(name) then
+		cdef(typedef)
+    else
+        print("[SafeCdef] " .. name .. " is already defined")
+    end
+end
+
+
 
 local usercmd_t =
     ffi.typeof(
@@ -235,7 +248,7 @@ local b = {
     in_air_roll = ui_new_slider("AA","Anti-aimbot angles","Customized Roll in air",  -50, 50, 50, true, " ")
 }
 
-local key3 = ui.new_hotkey("AA", "Anti-aimbot angles", "Force Rolling Angle on Key (Speed Decrease)")
+local key3 = ui.new_hotkey("AA", "Anti-aimbot angles", "On Key")
 
 local function velocity()
     local me = entity_get_local_player()
@@ -282,12 +295,13 @@ client.set_event_callback("setup_command", function()
         end
     end
 end)
-
+ui.set_visible(references.fake_lag_limit, false)
 client.set_event_callback("shutdown", function()
     local is_valve_ds = ffi.cast('bool*', gamerules[0] + 124)
     if is_valve_spoof == true then 
         is_valve_ds[0] = 0
     end
+    ui.set_visible(references.fake_lag_limit, true)
 end)
 ---------------The end of Sever Bypasser---------------
 
@@ -645,6 +659,7 @@ local m_render_engine = (function()
 end)()
 
 -------------------Teleport function-------------------
+--[[
 local double_tap, double_tap_key = ui.reference('Rage','Other','Double tap')
 local fakeducking = ui.reference('RAGE', 'Other', 'Duck peek assist')
 local limit = ui.reference('aa', 'Fake lag', 'Limit')
@@ -656,14 +671,13 @@ function teleport()
     if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then return end
     local getstate = ui.get(b.teleport_key) and not ui.get(fakeducking) 
     local is_tp = getstate
-    ui.set(key, getstate and 'On hotkey' or 'On hotkey')
-    ui.set(double_tap_key, getstate and 'Always on' or 'toggle')
     if fake_angle == true then
         ui.set(limit, getstate and 1 or 17)
         else
         ui.set(limit, getstate and 1 or 15)
     end
 end
+]]
 
 -------------Gradient Text
 
@@ -721,6 +735,14 @@ local function right_peek()
     ui.set(references.body_yaw[2], 80)
     ui.set(slider_roll, -(ui.get(slider_adjust)))
     ui.set(b.in_air_roll, -50)
+    ui.set(references.jitter[2], 0)
+end
+
+local function slow_walk()
+    ui.set(references.body_yaw[1], "Static")
+    ui.set(references.yaw[2],  7)
+    ui.set(references.body_yaw[2], 180)
+    ui.set(slider_roll, (ui.get(slider_adjust)))
     ui.set(references.jitter[2], 0)
 end
 local _V3_MT   = {};
@@ -959,8 +981,9 @@ if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
         end
     end
     detections = "DORMANCY"
+    local is_slowwalk = ui.get(references.slow_walk[2])
     if needed_player ~= -1 then
-        if not entity.is_dormant( player ) and entity.is_alive( player ) and is_rolling == true then
+        if not entity.is_dormant( player ) and entity.is_alive( player ) and is_rolling == true and not is_slowwalk then
             if ( ( is_enemy_peeking( player ) or is_local_peeking_enemy( player ) ) ) == true then
                 left_peek()
                 detections = "LEFT PEEKS"
@@ -968,6 +991,9 @@ if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
                 right_peek()
                 detections = "RIGHT PEEKS"
             end
+        elseif is_slowwalk and is_rolling == true then
+            detections = "SLOW WALK"
+            slow_walk()
         end
     end
     if detections == "DORMANCY" then
@@ -1083,12 +1109,23 @@ client.set_event_callback('setup_command', function(cmd)
             else if is_rolling == false or fake_angle == false and not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
                 Jittering = true
                 antiaim_state = status
-                jitter ()
+                jitter()
                 ui.set(ref.aa.yaw[2], antiaim_yaw_jitter(yaw_left,yaw_right))
             end
         end
     end
 end)
+
+local fakelag_settings = ui.new_slider("AA", "Fake lag", "Limit", 1, 16, 15, true, "")
+local function fakelag_adapter()
+    local is_expoliting = ((ui.get(onshotkey) or ui.get(references.doubletap[2])))
+    local is_valve_server = contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass")
+    local real_fakelag = (is_expoliting and not ui.get(references.fakeduck[1]) and 1) or (is_valve_server and 6) or (ui.get(fakelag_settings))
+
+    ui.set(references.fake_lag_limit , real_fakelag)
+end
+
+client.set_event_callback('setup_command', fakelag_adapter)
 
 -------------------------Logging-----------------------------
 
@@ -1302,7 +1339,6 @@ client.set_event_callback(
         else
             ani.charged = math.floor(lerp(ani.charged,0,globals.frametime() * 6))
         end
-        teleport()
         local local_player = entity.get_local_player()
 
         
@@ -1352,7 +1388,6 @@ client.set_event_callback(
                 end
             end
 
-    
             local header = gradient_text(255, 255, 255, 255, r4, g4, b4, 255, (ui.get(tag.enabled) and ui.get(tag.name)) or "MLC.YAW")
             
             renderer.text(center_x, center_y + 35, 255, 255, 255, 255, "-", nil, header)
@@ -1383,8 +1418,10 @@ client.set_event_callback(
                 end
             end
             draw_circle_3d(lp_pos.x, lp_pos.y, lp_pos.z, 43+2*1, c3d.degrees, c3d.start_at2, rr, gr, br, 255)
+            
+            local length_def = renderer.measure_text("-", (ui.get(tag.enabled) and ui.get(tag.name)) or "MLC.YAW") + 1
             if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then
-                renderer.text(center_x, center_y + 43 + ani.offset, 255, 255, 0, pulse, "-", nil, "BYPASS")
+                renderer.text(center_x + length_def, center_y + 35, 255, 255, 0, pulse, "-", nil, (length_def < 1 and "") or "+")
             else
 
             end

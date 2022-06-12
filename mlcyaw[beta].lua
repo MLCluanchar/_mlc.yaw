@@ -1,10 +1,9 @@
-local bit_band = bit.band
+
 local anti_aim = require 'gamesense/antiaim_funcs'
 
 local ffi = require "ffi"
 local vector = require("vector")
-local ui_set = ui.set
-local globals_tickcount, globals_realtime = globals.tickcount, globals.realtime
+
 -- Libraries
 
 local buttons_e = {
@@ -182,9 +181,6 @@ local references = {
     -- end of menu references and menu creation
 }
 local onshot, onshotkey = ui.reference('aa', 'other', 'On shot anti-aim')
-local function on_setup_command(cmd)
-    g_pOldAngles = vector(cmd.pitch, cmd.yaw, cmd.roll)
-end
 local slider_adjust = ui.new_slider("AA", "Anti-aimbot angles", "Roll Angle", 0, 90, 50, true, "°")
 local slider_roll = ui.new_slider("AA", "Anti-aimbot angles", "Roll Angle", -90, 90, 50, true, "°")
 
@@ -293,12 +289,15 @@ client.set_event_callback("setup_command", function()
     end
 end)
 
+ui.set_visible(references.fake_lag_limit, false)
 client.set_event_callback("shutdown", function()
     local is_valve_ds = ffi.cast('bool*', gamerules[0] + 124)
     if is_valve_spoof == true then 
         is_valve_ds[0] = 0
     end
+    ui.set_visible(references.fake_lag_limit, true)
 end)
+--------
 ---------------The end of Sever Bypasser---------------
 
 --------------Movement state--------------
@@ -749,6 +748,14 @@ local function right_peek()
     ui.set(b.in_air_roll, -50)
     ui.set(references.jitter[2], 0)
 end
+
+local function slow_walk()
+    ui.set(references.body_yaw[1], "Static")
+    ui.set(references.yaw[2],  7)
+    ui.set(references.body_yaw[2], 180)
+    ui.set(slider_roll, (ui.get(slider_adjust)))
+    ui.set(references.jitter[2], 0)
+end
 local _V3_MT   = {};
 _V3_MT.__index = _V3_MT;
 
@@ -985,8 +992,9 @@ if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
         end
     end
     detections = "DORMANCY"
+    local is_slowwalk = ui.get(references.slow_walk[2])
     if needed_player ~= -1 then
-        if not entity.is_dormant( player ) and entity.is_alive( player ) and is_rolling == true then
+        if not entity.is_dormant( player ) and entity.is_alive( player ) and is_rolling == true and not is_slowwalk then
             if ( ( is_enemy_peeking( player ) or is_local_peeking_enemy( player ) ) ) == true then
                 left_peek()
                 detections = "LEFT PEEKS"
@@ -994,6 +1002,9 @@ if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
                 right_peek()
                 detections = "RIGHT PEEKS"
             end
+        elseif is_slowwalk and is_rolling == true then
+            detections = "SLOW WALK"
+            slow_walk()
         end
     end
     if detections == "DORMANCY" then
@@ -1002,6 +1013,7 @@ if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
 end
 
 -- this is the end of a function for detecting whether the enemy is peeking the local player
+
 
 
 
@@ -1143,17 +1155,17 @@ local function jitter()
     local pulse_m = math.sin(math.abs((math.pi * -1) + (globals.curtime() * (1 / 0.35)) % (math.pi * 2))) * 60
     if pulse_m > 59 then pulse_m = 0 end
     ui.set(ref.aa.fyaw_limit, 60)
-if globals_realtime() >= TIME then
-    --ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
-    ui.set(ref.aa.jitter[1], "Center")
-    ui.set(ref.aa.pitch, "Minimal")
-    ui.set(ref.aa.yaw[1], "180")
-    ui.set(references.body_yaw[1], "Jitter")
-    ui.set(ref.aa.jitter[2], jitter_set)
-    ui.set(references.body_yaw[2], 0)
-    ui.set(ref.aa.freestanding_body_yaw, false)
-    TIME = globals_realtime() + 0.09
-end
+    if globals_realtime() >= TIME then
+        --ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
+        ui.set(ref.aa.jitter[1], "Center")
+        ui.set(ref.aa.pitch, "Minimal")
+        ui.set(ref.aa.yaw[1], "180")
+        ui.set(references.body_yaw[1], "Jitter")
+        ui.set(ref.aa.jitter[2], jitter_set)
+        ui.set(references.body_yaw[2], 0)
+        ui.set(ref.aa.freestanding_body_yaw, false)
+        TIME = globals_realtime() + 0.09
+    end
 end
 local antiaim_state
 local Jittering = false
@@ -1182,6 +1194,16 @@ client.set_event_callback('setup_command', function(cmd)
     end
 end)
 
+
+local fakelag_settings = ui.new_slider("AA", "Fake lag", "Limit", 1, 16, 15, true, "")
+local function fakelag_adapter()
+    local is_expoliting = ((ui.get(onshotkey) or ui.get(references.doubletap[2])))
+    local is_valve_server = contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass")
+    local real_fakelag = (is_expoliting and not ui.get(references.fakeduck[1]) and 1) or (is_valve_server and 6) or (ui.get(fakelag_settings))
+
+    ui.set(references.fake_lag_limit , real_fakelag)
+end
+client.set_event_callback('setup_command', fakelag_adapter)
 -------------------------Logging-----------------------------
 
 local function KaysFunction(A,B,C)
@@ -1394,7 +1416,6 @@ client.set_event_callback(
         else
             ani.charged = math.floor(lerp(ani.charged,0,globals.frametime() * 6))
         end
-        teleport()
         local local_player = entity.get_local_player()
 
         
@@ -1444,7 +1465,6 @@ client.set_event_callback(
                 end
             end
 
-    
             local header = gradient_text(255, 255, 255, 255, r4, g4, b4, 255, (ui.get(tag.enabled) and ui.get(tag.name)) or "MLC.YAW")
             
             renderer.text(center_x, center_y + 35, 255, 255, 255, 255, "-", nil, header)
@@ -1475,8 +1495,10 @@ client.set_event_callback(
                 end
             end
             draw_circle_3d(lp_pos.x, lp_pos.y, lp_pos.z, 43+2*1, c3d.degrees, c3d.start_at2, rr, gr, br, 255)
+            
+            local length_def = renderer.measure_text("-", (ui.get(tag.enabled) and ui.get(tag.name)) or "MLC.YAW") + 1
             if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then
-                renderer.text(center_x, center_y + 43 + ani.offset, 255, 255, 0, pulse, "-", nil, "BYPASS")
+                renderer.text(center_x + length_def, center_y + 35, 255, 255, 0, pulse, "-", nil, (length_def < 1 and "") or "+")
             else
 
             end
@@ -1491,7 +1513,6 @@ client.set_event_callback(
 end
 )
 
-client.set_event_callback("setup_command", on_setup_command)
 
 
 
