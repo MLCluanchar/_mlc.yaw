@@ -281,10 +281,10 @@ client.set_event_callback("setup_command", function()
         if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then
             is_valve_ds[0] = 0
             is_valve_spoof = true
-            ui.set(ticks_user, 7)
+            ui.set(ticks_user, 18)
         else 
             is_valve_spoof = false
-            ui.set(ticks_user, 17)
+            ui.set(ticks_user, 18)
         end
     end
 end)
@@ -501,12 +501,22 @@ end)
 local speed_slider = ui.new_slider("AA", "Anti-aimbot angles", "Fake Angle Speed Trigger", 0, 250, 10, true, " ")
 local fake_angle = false
 local num = 90
-local reverse_num = 180
+local m_cur_ticks_handled = 0
+local last_choke = 0
+local choke = 0
+local last_validate_choke = 0
+
+
+local can_break_tick = false;
+local previous_tick = -1;
+
+
+
 client.set_event_callback(
     "setup_command",
     function(cmd)
-        if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then return end
-        ui.set(references.fake_lag_limit, 15)
+        local is_valve = contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass")
+        ui.set(references.fake_lag_limit, (is_valve and 6) or 15)
         local speed = velocity()
         fake_angle = false
         if contains(ui.get(Exploit_mode_combobox), "Fake Angle") then
@@ -555,35 +565,78 @@ client.set_event_callback(
                 if inair() then
                     return
                 end
-                cmd.allow_send_packet = false
-                local Left = client.key_state(0x41)
-                local Right = client.key_state(0x44)
-                if Left == true then
-                    num = 70
-                    reverse_num = 180
-                    else if Right == true then
-                        num = 240
-                        reverse_num = 180
-                    end
-                    num = num 
-                    reverse_num = reverse_num
-                end
-                ui.set(references.fake_lag_limit, 17)
-                local angles = {client.camera_angles()}
                 fake_angle = true
-                if (cmd.chokedcommands % 2 == 0) then
-                    cmd.allow_send_packet = false
-                    cmd.yaw = angles[2] + num
-                    cmd.pitch = 80, angles[1]
-                else
-                    cmd.yaw = angles[2] + reverse_num
-                    cmd.pitch = 80, angles[1] - 80
+                ui.set(references.fake_lag_limit, 17)
+
+                -----------Handling fake angle----------------
+                local curtimeofflick = globals.curtime()
+
+                if cmd.chokedcommands < last_choke then
+                    choke = last_choke
+                    m_cur_ticks_handled = m_cur_ticks_handled + 1
                 end
+            
+                last_choke = cmd.chokedcommands
+            
+                cmd.allow_send_packet = (cmd.chokedcommands >= 17)
+            
+                if cmd.allow_send_packet then
+                    last_validate_choke = last_choke+1
+                end
+            
+                if choke == 0 then
+                    if previous_tick >= 18 then
+                        last_choke = previous_tick-1;
+                    elseif previous_tick >= 17 then
+                        last_choke = previous_tick+1;
+                    end
+                elseif choke == ui.get(fakelag_limit) then
+                    last_choke = choke + 2
+                end
+            
+                if choke > 0 and last_choke ~= 1 then
+                    if previous_tick > choke then
+                        can_break_tick = true;
+                        previous_tick = -1;
+                    else
+                        previous_tick = choke
+                        can_break_tick = last_choke > 16 and cmd.chokedcommands <= 3 or false
+                        can_break_tick = last_choke > choke and cmd.chokedcommands ~= last_choke or false
+                        can_break_tick = last_validate_choke > 16 and cmd.chokedcommands <= 3 or false
+                        can_break_tick = last_validate_choke > choke and cmd.chokedcommands ~= last_validate_choke or false
+                        can_break_tick = last_choke > 3 and cmd.chokedcommands <= 3 or false
+                        if ui.get( doubletap ) and ui.get( doubletap_state ) or ui.get( onshot ) and ui.get( onshot_state ) then
+                            if globals.curtime() > curtimeofflick + 0.04 then
+                                can_break_tick = true
+                                curtimeofflick = globals.curtime()
+                            else
+                                can_break_tick = false
+                            end
+                        end
+                    end
+                end
+                
         end
     end
 )
 
+local function fake_flick_handle()
 
+    if can_break_tick then
+        ui.set(references.body_yaw[2], 49)
+        ui.set(references.fake_yaw_limit   , 60)
+        ui.set(references.yaw[2], 15)
+        ui.set(references.jitter[2], 7)
+    else
+        ui.set(references.body_yaw[2], -49)
+        ui.set(references.fake_yaw_limit   , 60)
+        ui.set(references.yaw[2], -15)
+        ui.set(references.jitter[2], -7)
+    end
+
+end
+
+client.set_event_callback("predict_command", fake_flick_handle)
 client.set_event_callback("paint", function()
     if not contains(ui.get(Exploit_mode_combobox), "Fake Angle") then return end
     if num > 90 then
@@ -596,7 +649,6 @@ end)
 ---------------------Polygens
 
 local renderer_circle = renderer.circle
-local vector = require 'vector'
 
 local m_render_engine = (function()
 	local a = {}
@@ -675,8 +727,6 @@ local fakeducking = ui.reference('RAGE', 'Other', 'Duck peek assist')
 local limit = ui.reference('aa', 'Fake lag', 'Limit')
 local box, key = ui.reference( 'Rage', 'Other', 'Quick peek assist' )
 
-
-local is_tp
 function teleport()
     if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then return end
     local getstate = ui.get(b.teleport_key) and not ui.get(fakeducking) 
@@ -732,7 +782,7 @@ local function draw_circle_3d(x, y, z, radius, degrees, start_at, r, g, b, a)
 end
 -------------------------Basic Anti Aim----------------------
 
-local function left_peek()
+function left_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  -7)
     ui.set(references.body_yaw[2], -180)
@@ -740,7 +790,7 @@ local function left_peek()
     ui.set(b.in_air_roll, 50)
     ui.set(references.jitter[2], 0)
 end
-local function right_peek()
+function right_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  7)
     ui.set(references.body_yaw[2], 180)
@@ -749,7 +799,7 @@ local function right_peek()
     ui.set(references.jitter[2], 0)
 end
 
-local function slow_walk()
+function slow_walk()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  7)
     ui.set(references.body_yaw[2], 180)
@@ -865,7 +915,7 @@ function _V3_MT:normalized() -- returns a normalized unit vector
 end
 
 
-local function angle_forward( angle ) -- angle -> direction vector (forward)
+function angle_forward( angle ) -- angle -> direction vector (forward)
     local sin_pitch = math_sin( math_rad( angle.x ) );
     local cos_pitch = math_cos( math_rad( angle.x ) );
     local sin_yaw   = math_sin( math_rad( angle.y ) );
@@ -878,7 +928,7 @@ local function angle_forward( angle ) -- angle -> direction vector (forward)
     );
 end
 
-local function get_FOV( view_angles, start_pos, end_pos ) -- get fov to a vector (needs client view angles, start position (or client eye position for example) and the end position)
+function get_FOV( view_angles, start_pos, end_pos ) -- get fov to a vector (needs client view angles, start position (or client eye position for example) and the end position)
     local type_str;
     local fwd;
     local delta;
@@ -901,7 +951,7 @@ local function distance_3d( x1, y1, z1, x2, y2, z2 )
 end
 
 -- function for extrapolating player
-local function extrapolate( player , ticks , x, y, z )
+function extrapolate( player , ticks , x, y, z )
     local xv, yv, zv =  entity.get_prop( player, "m_vecVelocity" )
     local new_x = x+globals.tickinterval( )*xv*ticks
     local new_y = y+globals.tickinterval( )*yv*ticks
@@ -912,7 +962,7 @@ end
 -- end of functions to help with on peeking and getting peeked functions
 
 -- this is the start of a function for detecting whether the local player is peeking an enemy
-local function is_enemy_peeking( player )
+function is_enemy_peeking( player )
     local speed = velocity()
     if speed < 5 then
         return false
@@ -938,7 +988,7 @@ end
 -- this is the end of a function for detecting whether the local player is peeking an enemy
 
 -- this is the start of a function for detecting whether the enemy is peeking the local player
-local function is_local_peeking_enemy( player )
+function is_local_peeking_enemy( player )
     local speed = velocity()
     if speed < 5 then
         return false
@@ -1013,12 +1063,6 @@ if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
 end
 
 -- this is the end of a function for detecting whether the enemy is peeking the local player
-
-
-
-
-
-local fake_yaw = 0
 local status = "WAITING"
 
 local function antiaim_yaw_jitter(a,b)
@@ -1167,7 +1211,7 @@ local function jitter()
         TIME = globals_realtime() + 0.09
     end
 end
-local antiaim_state
+
 local Jittering = false
 client.set_event_callback('setup_command', function(cmd)
     Jittering = false
@@ -1186,7 +1230,6 @@ client.set_event_callback('setup_command', function(cmd)
             Jittering = false
             else if is_rolling == false or fake_angle == false and not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
                 Jittering = true
-                antiaim_state = status
                 jitter ()
                 ui.set(ref.aa.yaw[2], antiaim_yaw_jitter(yaw_left,yaw_right))
             end
@@ -1565,15 +1608,6 @@ local multi_exec = function(func, list)
     end
 end
 
-local compare = function(tab, val)
-    for i = 1, #tab do
-        if tab[i] == val then
-            return true
-        end
-    end
-    
-    return false
-end
 --#endregion /helpers
 
 local bind_system = {

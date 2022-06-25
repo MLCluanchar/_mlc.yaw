@@ -725,7 +725,7 @@ local function left_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  -7)
     ui.set(references.body_yaw[2], -80)
-    ui.set(slider_roll, ui.get(slider_adjust))
+    ui.set(slider_roll, -ui.get(slider_adjust))
     ui.set(b.in_air_roll, 50)
     ui.set(references.jitter[2], 0)
 end
@@ -733,7 +733,7 @@ local function right_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  7)
     ui.set(references.body_yaw[2], 80)
-    ui.set(slider_roll, -(ui.get(slider_adjust)))
+    ui.set(slider_roll, (ui.get(slider_adjust)))
     ui.set(b.in_air_roll, -50)
     ui.set(references.jitter[2], 0)
 end
@@ -1018,6 +1018,10 @@ end
 -----this is pretty scuff i will make a better one recently
 local yaw_left
 local yaw_right
+local jitter_left
+local jitter_right
+local fake_limit_left
+local fake_limit_right
 local jitter_set
 local preset_state = 'wait'
 
@@ -1029,15 +1033,19 @@ local function antiaim_logic()
 		return
 	end
 
+    local is_expoliting =  contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") or ui.get(references.doubletap[2]) or ui.get(onshotkey)
 	--standing->moving->inair
     -------------------Velocity is speed check
 	if velocity() > 90 then
-        if ui.get(references.doubletap[2]) then
+        if is_expoliting then
             --DT HIGH SPEED
 		    preset_state = 'MOVING(DT)'
-            yaw_left = 20
-            yaw_right = -14
-            jitter_set = 53
+            yaw_left = 0
+            yaw_right = 12
+            jitter_left = 70
+            jitter_left = 90
+            fake_limit_left = 55
+            fake_limit_right = 59
         else
             --FAKE LAG HIGH SPEED
             preset_state = 'MOVING(FL)'
@@ -1046,12 +1054,15 @@ local function antiaim_logic()
             jitter_set = 0
         end
 	else
-        if ui.get(references.doubletap[2]) then
+        if is_expoliting then
             --DT LOW SPEED
 		    preset_state = 'STANDING(DT)'
-            yaw_left = -15
-            yaw_right = 15
-            jitter_set = 54
+            yaw_left = 12
+            yaw_right = 9
+            jitter_left = 36
+            jitter_left = 40
+            fake_limit_left = 50
+            fake_limit_right = 59
         else
             --FAKE LAG STANDING
             preset_state = 'STANDING(FL)'
@@ -1064,9 +1075,12 @@ local function antiaim_logic()
 	if inair() then
         --IN AIR
 		preset_state = 'INAIR'
-        yaw_left = -12
-        yaw_right = 6
-        jitter_set = 53
+        yaw_left = 18
+        yaw_right = 12
+        jitter_left = 46
+        jitter_left = 45
+        fake_limit_left = 55
+        fake_limit_right = 59
 		ui.set(references.body_yaw[2], 5)
 	end
 	
@@ -1083,18 +1097,16 @@ local function jitter()
     antiaim_logic()
     local pulse_m = math.sin(math.abs((math.pi * -1) + (globals.curtime() * (1 / 0.35)) % (math.pi * 2))) * 60
     if pulse_m > 59 then pulse_m = 0 end
-    ui.set(ref.aa.fyaw_limit, 60)
-if globals_realtime() >= TIME then
-    --ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
-    ui.set(ref.aa.jitter[1], "Center")
-    ui.set(ref.aa.pitch, "Minimal")
-    ui.set(ref.aa.yaw[1], "180")
-    ui.set(references.body_yaw[1], "Jitter")
-    ui.set(ref.aa.jitter[2], jitter_set)
-    ui.set(references.body_yaw[2], 0)
-    ui.set(ref.aa.freestanding_body_yaw, false)
-    TIME = globals_realtime() + 0.09
-end
+    if globals_realtime() >= TIME then
+        --ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
+        ui.set(ref.aa.jitter[1], "Center")
+        ui.set(ref.aa.pitch, "Minimal")
+        ui.set(ref.aa.yaw[1], "180")
+        ui.set(references.body_yaw[1], "Jitter")
+        ui.set(references.body_yaw[2], 0)
+        ui.set(ref.aa.freestanding_body_yaw, false)
+        TIME = globals_realtime() + 0.09
+    end
 end
 local antiaim_state
 local Jittering = false
@@ -1111,6 +1123,8 @@ client.set_event_callback('setup_command', function(cmd)
                 antiaim_state = status
                 jitter()
                 ui.set(ref.aa.yaw[2], antiaim_yaw_jitter(yaw_left,yaw_right))
+                ui.set(ref.aa.fyaw_limit, antiaim_yaw_jitter(fake_limit_left,fake_limit_right))
+                ui.set(ref.aa.jitter[2], antiaim_yaw_jitter(jitter_left,jitter_right))
             end
         end
     end
@@ -1118,7 +1132,7 @@ end)
 
 local fakelag_settings = ui.new_slider("AA", "Fake lag", "Limit", 1, 16, 15, true, "")
 local function fakelag_adapter()
-    local is_expoliting = ((ui.get(onshotkey) or ui.get(references.doubletap[2])))
+    local is_expoliting = ((ui.get(onshotkey) --[[or ui.get(references.doubletap[2])]]    ))
     local is_valve_server = contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass")
     local real_fakelag = (is_expoliting and not ui.get(references.fakeduck[1]) and 1) or (is_valve_server and 6) or (ui.get(fakelag_settings))
 
