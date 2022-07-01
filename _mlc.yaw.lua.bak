@@ -126,95 +126,6 @@ local g_pInput =
 
 
 
-local pi = 3.14159265358979323846
-local function d2r(value)
-	return value * (pi / 180)
-end
-
-local function vectorangle(x,y,z)
-	local fwd_x, fwd_y, fwd_z
-	local sp, sy, cp, cy
-	
-	sy = math.sin(d2r(y))
-	cy = math.cos(d2r(y))
-	sp = math.sin(d2r(x))
-	cp = math.cos(d2r(x))
-	fwd_x = cp * cy
-	fwd_y = cp * sy
-	fwd_z = -sp
-	return fwd_x, fwd_y, fwd_z
-end
-
-
-local function multiplyvalues(x,y,z,val)
-	x = x * val y = y * val z = z * val
-	return x, y, z
-end
-
-local function freestanding()
-    local localp = entity.get_local_player()
-    if entity_get_prop(localp, "m_lifeState") ~= 0 then
-        return false
-     --we are dead who cares
-    end
-
-    --ui.set(references.body_yaw[1], "Static")
-
-    local eyepos_x, eyepos_y, eyepos_z = entity_get_prop(localp, "m_vecAbsOrigin")
-    local offsetx, offsety, offsetz = entity_get_prop(localp, "m_vecViewOffset")
-    eyepos_z = eyepos_z + offsetz
-    local lowestfrac = 1
-    local dir = false
-    local cpitch, cyaw = client.camera_angles()
-    local fractionleft, fractionright = 0, 0
-    local amountleft, amountright = 0, 0
-
-    for i = -45, 45, 5 do
-        if i ~= 0 then
-            local fwdx, fwdy, fwdz = vectorangle(0, cyaw + i, 0)
-            fwdx, fwdy, fwdz = multiplyvalues(fwdx, fwdy, fwdz, 70)
-            --debug drawing if u want to play with the values
-
-            local fraction =
-                client.trace_line(
-                localp,
-                eyepos_x,
-                eyepos_y,
-                eyepos_z,
-                eyepos_x + fwdx,
-                eyepos_y + fwdy,
-                eyepos_z + fwdz
-            )
-            local outx, outy = renderer.world_to_screen(eyepos_x + fwdx, eyepos_y + fwdy, eyepos_z + fwdz)
-            if fraction < 1 then
-
-                  --renderer.rectangle(outx - 2, outy - 2, 4, 4, 0, 255, 0, 255)
-            else
-                --renderer.rectangle(outx - 2, outy - 2, 4, 4, 255, 255, 255, 255)
-
-            end
-            if i > 0 then
-                fractionleft = fractionleft + fraction
-                amountleft = amountleft + 1
-            else
-                fractionright = fractionright + fraction
-                amountright = amountright + 1
-            end
-        end
-    end
-
-    local averageleft, averageright = fractionleft / amountleft, fractionright / amountright
-
-    if averageleft < averageright then
-        return "left"
-    elseif averageleft > averageright then
-        return "right"
-    else
-        return "none"
-    end
-end
-
-
 local lua_log = function(...) --inspired by sapphyrus' multicolorlog
     client.color_log(255, 59, 59, "[ mlc.yaw ]\0")
     local arg_index = 1
@@ -727,7 +638,7 @@ end
 
 -------------Gradient Text
 
-function gradient_text(r1, g1, b1, a1, r2, g2, b2, a2, text)
+local function gradient_text(r1, g1, b1, a1, r2, g2, b2, a2, text)
 	local output = ''
 
 	local len = #text-1
@@ -750,7 +661,7 @@ function gradient_text(r1, g1, b1, a1, r2, g2, b2, a2, text)
 	return output
 end
 -------------------------Render LBY Circle---------------------
-function draw_circle_3d(x, y, z, radius, degrees, start_at, r, g, b, a)
+local function draw_circle_3d(x, y, z, radius, degrees, start_at, r, g, b, a)
 	local accuracy = 10/10
     local old = { x, y }
 	for rot=start_at, degrees+start_at, accuracy do
@@ -767,7 +678,7 @@ function draw_circle_3d(x, y, z, radius, degrees, start_at, r, g, b, a)
 end
 -------------------------Basic Anti Aim----------------------
 
-function left_peek()
+local function left_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  -7)
     ui.set(references.body_yaw[2], -80)
@@ -775,7 +686,7 @@ function left_peek()
     ui.set(b.in_air_roll, 50)
     ui.set(references.jitter[2], 0)
 end
-function right_peek()
+local function right_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  7)
     ui.set(references.body_yaw[2], 80)
@@ -784,7 +695,7 @@ function right_peek()
     ui.set(references.jitter[2], 0)
 end
 
-function slow_walk()
+local function slow_walk()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  7)
     ui.set(references.body_yaw[2], 180)
@@ -1160,24 +1071,11 @@ local function jitter()
 end
 
 local Jittering = false
-local Legit_AA = false
+
 local function antiaim_handler(cmd)
     Jittering = false
     detection(cmd)
-    local is_enable = contains(ui.get(misc_combobox), "Legit Anti-aim on use")
-    local on_e = client.key_state(0x45)
-    local status = freestanding()
-    local is_legtaa = (on_e and status ~= "none" and is_enable)
-    Legit_AA = is_legtaa
-    local bodyyaw_legit = (status == "left" and -180) or (status == "right" and 180) or 0
-    if is_legtaa then
-        ui.set(ref.aa.yaw[1], "Off")
-        ui.set(references.body_yaw[1], "Static")
-        ui.set(references.body_yaw[2], bodyyaw_legit)
-        ui.set(references.jitter[2], 0)
-    end
-
-    if contains(ui.get(Exploit_mode_combobox), "Fake Yaw") and not is_legtaa then
+    if contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
         if is_rolling == true or fake_angle == true then
             static()
             print()
@@ -1475,7 +1373,6 @@ local function Indicator()
         else
             fake_yaw = gradient_text(184, 187, 230, 255, 184, 187, 230, 255, status)
         end
-
         if fake_angle == true and is_rolling == true then
             renderer.text(center_x, center_y + 43 + ani.offset, 253, 162, 180, 255, "-", nil, state)
             else if fake_angle == true  then
@@ -1485,7 +1382,7 @@ local function Indicator()
                     else if Jittering == true then
                         renderer.text(center_x, center_y + 43 + ani.offset, 184, 187, 230, 255, "-", nil, fake_yaw)
                         else if Jittering == false and fake_angle == false and is_rolling == false then
-                            renderer.text(center_x, center_y + 43 + ani.offset, 255, 255, 255, 255, "-", nil, (Legit_AA and "LEGIT AA") or "WAITING...")
+                            renderer.text(center_x, center_y + 43 + ani.offset, 255, 255, 255, 255, "-", nil, "WAITING...")
                         end
                     end
                 end
@@ -1730,21 +1627,6 @@ local function manual_indicator()
         if m_state == 3 or m_state == 0 then renderer.text(w/2, h / 2 + distance, r, g, b, a, "+c", 0, "") end
     end
 end
-
-
-local function inuse(e)
-    local weaponn = entity.get_player_weapon()
-    if weaponn ~= nil and entity.get_classname(weaponn) == "CC4" then
-        if e.in_attack == 1 then
-            e.in_attack = 0 
-            e.in_use = 1
-        end
-    else
-        if e.chokedcommands == 0 then
-            e.in_use = 0
-        end
-    end
-end
 -----------------Animation
 
 
@@ -1780,15 +1662,10 @@ local function setup_command(cmd)
     manual_antiaim()
     on_setup_command(cmd)
     fake_angle_handler(cmd)
-
-    if contains(ui.get(misc_combobox), "Legit Anti-aim on use") then
-        inuse(cmd)
-    end
 end
 
 local function on_paint()
     Indicator()
-    freestanding()
     manual_indicator()
 end
 
