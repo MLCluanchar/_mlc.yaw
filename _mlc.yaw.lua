@@ -307,6 +307,7 @@ local misc_combobox =
     "Legit Anti-aim on use",
     "Fast Zeus"
 )
+
 local b = {
     teleport_key = ui_new_hotkey("AA", "Other", "Teleport key"),
     indicators = ui_new_multiselect("AA", "Anti-aimbot angles", "Enable Indicators", "Status Netgraph", "Debug"),
@@ -368,10 +369,8 @@ end
 
 local function stamina_bind()
     if contains(ui.get(static_mode_combobox), "Low Stamina") then
-        ui.set_visible(b.stamina_slider, true)
         return ui.get(b.stamina_slider)
     else
-        ui.set_visible(b.stamina_slider, false)
         return 0
     end
 end
@@ -384,8 +383,6 @@ end
 local function hit_bind()
     local hit_health = on_hit()
     if contains(ui.get(static_mode_combobox), "< Speed Velocity") then
-        ui.set_visible(b.velocity_slider, true)
-        ui.set_visible(b.checkbox_hitchecker, true)
         if ui.get(b.checkbox_hitchecker) and hit_health <= 0.9 then
             return 0
         else if is_on_ladder == 1 then
@@ -395,8 +392,6 @@ local function hit_bind()
             end
         end
     end
-    ui.set_visible(b.velocity_slider, false)
-    ui.set_visible(b.checkbox_hitchecker, false)
     return 0
 end
 
@@ -443,9 +438,9 @@ end
 local function roll_bind()
     local roll_set = ui.get(slider_roll)
     if contains(ui.get(static_mode_combobox), "In Air") then
-        ui.set_visible(b.in_air_roll, true)
+
     else
-        ui.set_visible(b.in_air_roll, false)
+
     end
     if air_status() == 1 then
         roll_set = ui.get(b.in_air_roll)
@@ -458,9 +453,9 @@ end
 local function hide_keys()
     local key100 = 1
     if contains(ui.get(static_mode_combobox), "On Key") then
-        ui.set_visible(key3, true)
+
     else
-        ui.set_visible(key3, false)
+
         return key100
     end
 end
@@ -1050,17 +1045,10 @@ end
 -- this is the end of a function for detecting whether the enemy is peeking the local player
 
 
-
-
-local fake_yaw = 0
 local status = "WAITING"
-
-local function antiaim_yaw_jitter(a,b)
-    local desync = entity_get_prop(entity_get_local_player(), "m_flPoseParameter", 11) * 120 - 60
-    local overlap = anti_aim.get_overlap(rotation)
-    status = (overlap > 0.7 and "FAKE YAW +/-") or "OVERLAP-"
-    return (desync < 0 and overlap > 0.6 and a or b)
-end
+local AA_S = {     "High Speed (E)", "High Speed (F)", 
+                    "Low Speed (E)", "Low Speed (F)", 
+                    "In Air (H)", "In Air (L)",}
 -----this is pretty scuff i will make a better one recently
 
 local vars = {
@@ -1075,7 +1063,138 @@ local vars = {
     preset_state = 'wait',
 
 }
+
+local function antiaim_yaw_jitter(a,b)
+    local desync = entity_get_prop(entity_get_local_player(), "m_flPoseParameter", 11) * 120 - 60
+    local overlap = anti_aim.get_overlap(rotation)
+    status = (overlap > 0.7 and "FAKE YAW +/-") or "OVERLAP-"
+    return (desync < 0 and overlap > 0.6 and a or b)
+end
+
+local Antiaim = {}
+local TAB =  { "AA", "Anti-aimbot angles"} 
+local fake_yaw = {
+
+    enable = ui_new_combobox( TAB[1], TAB[2], "Fake Yaw Preset", 
+    "Preset", "Costum"),
+
+    custom_menu = ui_new_combobox( TAB[1], TAB[2], "Customized State", AA_S),
+
+    hide_menu = ui_new_checkbox( TAB[1], TAB[2], "Hide Preset Panel", false),
+}
+
+for i = 1, #AA_S do
+    Antiaim[i] = {
+        yaw_left = ui_new_slider( TAB[1], TAB[2], "Yaw +/-" ..AA_S[i], -180, 180, 15, true, "°"),
+        yaw_right = ui_new_slider( TAB[1], TAB[2], "\nYaw +/-" ..AA_S[i], -180, 180, 15, true, "°"),
+
+        jitter_left = ui_new_slider( TAB[1], TAB[2], "Yaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, "°"),
+        jitter_right = ui_new_slider( TAB[1], TAB[2], "\nYaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, "°"), 
+
+        fake_limit_left = ui_new_slider( TAB[1], TAB[2], "Fake Limit +/-" ..AA_S[i], 0, 180, 15, true, "°"),
+        fake_limit_right = ui_new_slider( TAB[1], TAB[2], "\nFake Limit" ..AA_S[i], 0, 180, 15, true, "°"),
+    }
+end
+
+local function init_preset()
+
+    ui_set(Antiaim[1].yaw_left,0)
+    ui_set(Antiaim[1].yaw_right,12)
+    ui_set(Antiaim[1].jitter_left,70)
+    ui_set(Antiaim[1].jitter_right,90)
+    ui_set(Antiaim[1].fake_limit_left,55)
+    ui_set(Antiaim[1].fake_limit_right,59)
+
+    ui_set(Antiaim[2].yaw_left,0)
+    ui_set(Antiaim[2].yaw_right,0)
+    ui_set(Antiaim[2].jitter_left,0)
+    ui_set(Antiaim[2].jitter_right,0)
+    ui_set(Antiaim[2].fake_limit_left,60)
+    ui_set(Antiaim[2].fake_limit_right,60)
+
+    ui_set(Antiaim[3].yaw_left,12)
+    ui_set(Antiaim[3].yaw_right,9)
+    ui_set(Antiaim[3].jitter_left,36)
+    ui_set(Antiaim[3].jitter_right,40)
+    ui_set(Antiaim[3].fake_limit_left,50)
+    ui_set(Antiaim[3].fake_limit_right,59)
+
+    ui_set(Antiaim[4].yaw_left,0)
+    ui_set(Antiaim[4].yaw_right,0)
+    ui_set(Antiaim[4].jitter_left,0)
+    ui_set(Antiaim[4].jitter_right,0)
+    ui_set(Antiaim[4].fake_limit_left,60)
+    ui_set(Antiaim[4].fake_limit_right,60)
+
+    ui_set(Antiaim[5].yaw_left,18)
+    ui_set(Antiaim[5].yaw_right,12)
+    ui_set(Antiaim[5].jitter_left,46)
+    ui_set(Antiaim[5].jitter_right,45)
+    ui_set(Antiaim[5].fake_limit_left,55)
+    ui_set(Antiaim[5].fake_limit_right,59)
+
+    ui_set(Antiaim[6].yaw_left,18)
+    ui_set(Antiaim[6].yaw_right,12)
+    ui_set(Antiaim[6].jitter_left,46)
+    ui_set(Antiaim[6].jitter_right,45)
+    ui_set(Antiaim[6].fake_limit_left,55)
+    ui_set(Antiaim[6].fake_limit_right,59)
+end
+
+local function handle_function_menu()
+
+    -->> Roll Angle Section
+    local rollangle = contains(ui_get(Exploit_mode_combobox), "Roll Angle")
+    ui_set_visible(static_mode_combobox, rollangle)
+    
+    -->> Select mode
+    local inair = contains(ui_get(static_mode_combobox), "In Air") and rollangle
+    ui_set_visible(b.in_air_roll, inair)
+
+    local stamina = contains(ui_get(static_mode_combobox), "Low Stamina") and rollangle
+    ui_set_visible(b.stamina_slider, stamina)
+
+    local speed = contains(ui.get(static_mode_combobox), "< Speed Velocity") and rollangle
+    ui_set_visible(b.velocity_slider, speed)
+    ui_set_visible(b.checkbox_hitchecker, speed)
+
+    local on_key = contains(ui_get(static_mode_combobox), "On Key") and rollangle
+    ui_set_visible(key3, on_key)
+
+    -----------------------------------------------
+
+    -->> Fake Yaw Section
+    local fakeyaw = contains(ui_get(Exploit_mode_combobox), "Fake Yaw")
+
+    -->> Select mode
+    ui.set_visible(fake_yaw.enable, fakeyaw)
+    local preset = ui_get(fake_yaw.enable) == "Preset"
+    local custom = ui_get(fake_yaw.enable) == "Costum" and fakeyaw
+    local is_hiding = ui_get(fake_yaw.hide_menu)
+    -->> Go for preset
+    if preset then init_preset() end
+
+    -->> Go for custom
+    ui_set_visible(fake_yaw.hide_menu, custom)
+    ui_set_visible(fake_yaw.custom_menu, custom)
+    for i=1, #AA_S do
+        local set_visible = ui_get(fake_yaw.custom_menu) == AA_S[i]
+        local visible = custom and set_visible and not is_hiding
+
+        ui_set_visible(Antiaim[i].yaw_left, visible)
+        ui_set_visible(Antiaim[i].yaw_right, visible)
+        ui_set_visible(Antiaim[i].jitter_left, visible)
+        ui_set_visible(Antiaim[i].jitter_right, visible)
+        ui_set_visible(Antiaim[i].fake_limit_left, visible)
+        ui_set_visible(Antiaim[i].fake_limit_right, visible)
+    end
+
+end
+
 local function antiaim_logic()
+
+
+
 
 	local local_player = entity.get_local_player()
 	
@@ -1083,55 +1202,82 @@ local function antiaim_logic()
 		return
 	end
 
+    local current_threat = client.current_threat()
+    local origin_local = vector(entity_get_origin(local_player))
+    local origin_threat = (current_threat ~= nil and vector(entity_get_origin(current_threat)) or nil)
+
+    local height = (origin_threat ~= nil and (origin_local.z > origin_threat.z + 10)) or false
+
     local is_expoliting =  contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") or ui.get(references.doubletap[2]) or ui.get(onshotkey)
 	--standing->moving->inair
     -------------------Velocity is speed check
+
+
 	if velocity() > 90 then
         if is_expoliting then
             --DT HIGH SPEED
 		    vars.preset_state = 'MOVING(DT)'
-            vars.yaw_left = 0
-            vars.yaw_right = 12
-            vars.jitter_left = 70
-            vars.jitter_right = 90
-            vars.fake_limit_left = 55
-            vars.fake_limit_right = 59
+            vars.yaw_left = ui_get(Antiaim[1].yaw_left)
+            vars.yaw_right = ui_get(Antiaim[1].yaw_right)
+            vars.jitter_left = ui_get(Antiaim[1].jitter_left)
+            vars.jitter_right = ui_get(Antiaim[1].jitter_right)
+            vars.fake_limit_left = ui_get(Antiaim[1].fake_limit_left)
+            vars.fake_limit_right = ui_get(Antiaim[1].fake_limit_right)
+
         else
             --FAKE LAG HIGH SPEED
             vars.preset_state = 'MOVING(FL)'
-            vars.yaw_left = 0
-            vars.yaw_right = 0
-            --vars.jitter_set = 0
+            vars.yaw_left = ui_get(Antiaim[2].yaw_left)
+            vars.yaw_right = ui_get(Antiaim[2].yaw_right)
+            vars.jitter_left = ui_get(Antiaim[2].jitter_left)
+            vars.jitter_right = ui_get(Antiaim[2].jitter_right)
+            vars.fake_limit_left = ui_get(Antiaim[2].fake_limit_left)
+            vars.fake_limit_right = ui_get(Antiaim[2].fake_limit_right)
         end
 	else
         if is_expoliting then
             --DT LOW SPEED
 		    vars.preset_state = 'STANDING(DT)'
-            vars.yaw_left = 12
-            vars.yaw_right = 9
-            vars.jitter_left = 36
-            vars.jitter_right = 40
-            vars.fake_limit_left = 50
-            vars.fake_limit_right = 59
+            vars.yaw_left = ui_get(Antiaim[3].yaw_left)
+            vars.yaw_right = ui_get(Antiaim[3].yaw_right)
+            vars.jitter_left = ui_get(Antiaim[3].jitter_left)
+            vars.jitter_right = ui_get(Antiaim[3].jitter_right)
+            vars.fake_limit_left = ui_get(Antiaim[3].fake_limit_left)
+            vars.fake_limit_right = ui_get(Antiaim[3].fake_limit_right)
+
         else
             --FAKE LAG STANDING
             vars.preset_state = 'STANDING(FL)'
-            vars.yaw_left = 0
-            vars.yaw_right = 0
-            vars.jitter_set = 0
+            vars.yaw_left = ui_get(Antiaim[4].yaw_left)
+            vars.yaw_right = ui_get(Antiaim[4].yaw_right)
+            vars.jitter_left = ui_get(Antiaim[4].jitter_left)
+            vars.jitter_right = ui_get(Antiaim[4].jitter_right)
+            vars.fake_limit_left = ui_get(Antiaim[4].fake_limit_left)
+            vars.fake_limit_right = ui_get(Antiaim[4].fake_limit_right)
         end
     end
 
 	if inair() then
         --IN AIR
-		vars.preset_state = 'INAIR'
-        vars.yaw_left = 18
-        vars.yaw_right = 12
-        vars.jitter_left = 46
-        vars.jitter_right = 45
-        vars.fake_limit_left = 55
-        vars.fake_limit_right = 59
-		ui.set(references.body_yaw[2], 5)
+        if height then
+            vars.preset_state = 'INAIR (H)'
+            vars.yaw_left = ui_get(Antiaim[5].yaw_left)
+            vars.yaw_right = ui_get(Antiaim[5].yaw_right)
+            vars.jitter_left = ui_get(Antiaim[5].jitter_left)
+            vars.jitter_right = ui_get(Antiaim[5].jitter_right)
+            vars.fake_limit_left = ui_get(Antiaim[5].fake_limit_left)
+            vars.fake_limit_right = ui_get(Antiaim[5].fake_limit_right)
+            ui.set(references.body_yaw[2], 5)
+        else
+            vars.preset_state = 'INAIR (L)'
+            vars.yaw_left = ui_get(Antiaim[6].yaw_left)
+            vars.yaw_right = ui_get(Antiaim[6].yaw_right)
+            vars.jitter_left = ui_get(Antiaim[6].jitter_left)
+            vars.jitter_right = ui_get(Antiaim[6].jitter_right)
+            vars.fake_limit_left = ui_get(Antiaim[6].fake_limit_left)
+            vars.fake_limit_right = ui_get(Antiaim[6].fake_limit_right)
+            ui.set(references.body_yaw[2], 5)
+        end
 	end
 	
 end
@@ -1535,18 +1681,22 @@ end
 
 --------------------------------MANUAL ANTI AIM
 --#region new controls
-local enabled = ui.new_checkbox("AA", "Other", "Enable manual anti-aim")
-local indicator_color = ui.new_color_picker("AA", "Other", "enable_manual_anti_aim", 130, 156, 212, 255)
-local left_dir = ui.new_hotkey("AA", "Other", "Left direction")
-local right_dir = ui.new_hotkey("AA", "Other", "Right direction")
-local back_dir = ui.new_hotkey("AA", "Other", "Backwards direction")
-local indicator_dist = ui.new_slider("AA", "Other", "Distance between arrows", 1, 100, 15, true, "px")
-local manual_inactive_color = ui.new_color_picker("AA", "Other", "manual_inactive_color", 130, 156, 212, 255)
-local manual_state = ui.new_slider("AA", "Other", "Manual direction", 0, 3, 0)
+
 --#endregion /new controls
 --#region references
 
+local manual = {
 
+     enabled = ui.new_checkbox("AA", "Other", "Enable manual anti-aim"),
+     indicator_color = ui.new_color_picker("AA", "Other", "enable_manual_anti_aim", 130, 156, 212, 255),
+     left_dir = ui.new_hotkey("AA", "Other", "Left direction"),
+     right_dir = ui.new_hotkey("AA", "Other", "Right direction"),
+     back_dir = ui.new_hotkey("AA", "Other", "Backwards direction"),
+     indicator_dist = ui.new_slider("AA", "Other", "Distance between arrows", 1, 100, 15, true, "px"),
+     manual_inactive_color = ui.new_color_picker("AA", "Other", "manual_inactive_color", 130, 156, 212, 255),
+     manual_state = ui.new_slider("AA", "Other", "Manual direction", 0, 3, 0),
+
+}
 local multi_exec = function(func, list)
     if func == nil then
         return
@@ -1566,16 +1716,16 @@ local bind_system = {
 }
 
 function bind_system:update()
-    ui.set(left_dir, "On hotkey")
-    ui.set(right_dir, "On hotkey")
-    ui.set(back_dir, "On hotkey")
+    ui.set(manual.left_dir, "On hotkey")
+    ui.set(manual.right_dir, "On hotkey")
+    ui.set(manual.back_dir, "On hotkey")
 
-    local m_state = ui.get(manual_state)
+    local m_state = ui.get(manual.manual_state)
 
     local left_state, right_state, backward_state = 
-        ui.get(left_dir), 
-        ui.get(right_dir),
-        ui.get(back_dir)
+        ui.get(manual.left_dir), 
+        ui.get(manual.right_dir),
+        ui.get(manual.back_dir)
 
     if  left_state == self.left and 
         right_state == self.right and
@@ -1589,42 +1739,42 @@ function bind_system:update()
         backward_state
 
     if (left_state and m_state == 1) or (right_state and m_state == 2) or (backward_state and m_state == 3) then
-        ui.set(manual_state, 0)
+        ui.set(manual.manual_state, 0)
         return
     end
 
     if left_state and m_state ~= 1 then
-        ui.set(manual_state, 1)
+        ui.set(manual.manual_state, 1)
     end
 
     if right_state and m_state ~= 2 then
-        ui.set(manual_state, 2)
+        ui.set(manual.manual_state, 2)
     end
 
     if backward_state and m_state ~= 3 then
-        ui.set(manual_state, 3)
+        ui.set(manual.manual_state, 3)
     end
 end
 
 local menu_callback = function(e, menu_call)
-    local state = not ui.get(enabled) -- or (e == nil and menu_call == nil)
+    local state = not ui.get(manual.enabled) -- or (e == nil and menu_call == nil)
     multi_exec(ui.set_visible, {
-        [indicator_color] = not state,
-        [manual_inactive_color] = not state,
-        [indicator_dist] = not state ,
-        [left_dir] = not state,
-        [right_dir] = not state,
-        [back_dir] = not state,
-        [manual_state] = false,
+        [manual.indicator_color] = not state,
+        [manual.manual_inactive_color] = not state,
+        [manual.indicator_dist] = not state ,
+        [manual.left_dir] = not state,
+        [manual.right_dir] = not state,
+        [manual.back_dir] = not state,
+        [manual.manual_state] = false,
     })
 end
 
 local function manual_antiaim()
-    if not ui.get(enabled) then
+    if not ui.get(manual.enabled) then
         return
     end
 
-    local direction = ui.get(manual_state)
+    local direction = ui.get(manual.manual_state)
 
     local manual_yaw = {
         [0] = 0,
@@ -1698,18 +1848,18 @@ local function manual_indicator()
     
     local me = entity.get_local_player()
     
-    if not entity.is_alive(me) or not ui.get(enabled) then
+    if not entity.is_alive(me) or not ui.get(manual.enabled) then
         return
     end
 
-    if ui.get(enabled) then
+    if ui.get(manual.enabled) then
         local w, h = client.screen_size()
-        local r, g, b, a = ui.get(indicator_color)
-        local r1, g1, b1, a1 = ui.get(manual_inactive_color)
-        local m_state = ui.get(manual_state)
+        local r, g, b, a = ui.get(manual.indicator_color)
+        local r1, g1, b1, a1 = ui.get(manual.manual_inactive_color)
+        local m_state = ui.get(manual.manual_state)
     
         local realtime = globals.realtime() % 3
-        local distance = (w/2) / 210 * ui.get(indicator_dist)
+        local distance = (w/2) / 210 * ui.get(manual.indicator_dist)
         local alpha = math.floor(math.sin(realtime * 4) * (a/2-1) + a/2) or a
         -- ⯇ ⯈ ⯅ ⯆
         
@@ -1770,6 +1920,10 @@ local function handle_visible(state)
 
     ui.set_visible(references.fake_lag_limit, not state)
     ui.set_visible(fakelag_settings, state)
+
+    ui.set_visible(fake_yaw.enable, state)
+    ui.set_visible(fake_yaw.custom_menu, state)
+    ui.set_visible(fake_yaw.hide_menu, state)
 end
 
 local function setup_command(cmd)
@@ -1790,6 +1944,7 @@ local function on_paint()
     Indicator()
     freestanding()
     manual_indicator()
+    handle_function_menu()
 end
 
 local function run_command(cmd)
@@ -1813,6 +1968,8 @@ end
 local disable = true
 handle_visible(false)
 menu_callback()
+init_preset()
+handle_function_menu()
 local function initialize()
     client.set_event_callback("run_command", run_command)
     client.set_event_callback('bullet_impact', on_bullet_impact)
@@ -1820,7 +1977,7 @@ local function initialize()
     client.set_event_callback("paint", on_paint)
     client.set_event_callback("pre_render", pre_render)
     client.set_event_callback("shutdown", shutdown)
-    client.set_event_callback(enabled, menu_callback)
+    client.set_event_callback(manual.enabled, menu_callback)
     handle_visible(true)
     disable = false
 end
