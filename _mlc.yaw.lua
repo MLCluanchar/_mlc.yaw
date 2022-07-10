@@ -1072,6 +1072,38 @@ local function antiaim_yaw_jitter(a,b)
 end
 
 local Antiaim = {}
+
+local function export_config()
+    local settings = {}
+    local clipboard = require("gamesense/clipboard")
+    local base64 = require("gamesense/base64")
+    for key, value in pairs(AA_S) do
+        settings[tostring(value)] = {}
+        for k, v in pairs(Antiaim[key]) do
+            print(ui_get(v))
+        end
+    end
+
+    clipboard.set(json.stringify(settings), "base64")
+
+end
+
+local function import_config()
+    local clipboard = require("gamesense/clipboard")
+    local base64 = require("gamesense/base64")
+    local settings = json.parse(clipboard.get())
+    for key, value in pairs(AA_S) do
+        for k, v in pairs(Antiaim[key]) do
+            local current = settings[value][k]
+            if (current ~= nil) then
+                ui_set(v, current)
+            end
+        end
+    end
+
+end
+
+
 local TAB =  { "AA", "Anti-aimbot angles"} 
 local fake_yaw = {
 
@@ -1081,6 +1113,10 @@ local fake_yaw = {
     custom_menu = ui_new_combobox( TAB[1], TAB[2], "Customized State", AA_S),
 
     hide_menu = ui_new_checkbox( TAB[1], TAB[2], "Hide Preset Panel", false),
+
+
+    config_export = ui_new_button( TAB[1], TAB[2], "Export Preset", export_config),
+    config_import = ui_new_button( TAB[1], TAB[2], "Import Preset", import_config)
 }
 
 for i = 1, #AA_S do
@@ -1091,8 +1127,8 @@ for i = 1, #AA_S do
         jitter_left = ui_new_slider( TAB[1], TAB[2], "Yaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, "°"),
         jitter_right = ui_new_slider( TAB[1], TAB[2], "\nYaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, "°"), 
 
-        fake_limit_left = ui_new_slider( TAB[1], TAB[2], "Fake Limit +/-" ..AA_S[i], 0, 180, 15, true, "°"),
-        fake_limit_right = ui_new_slider( TAB[1], TAB[2], "\nFake Limit" ..AA_S[i], 0, 180, 15, true, "°"),
+        fake_limit_left = ui_new_slider( TAB[1], TAB[2], "Fake Limit +/-" ..AA_S[i], 0, 60, 15, true, "°"),
+        fake_limit_right = ui_new_slider( TAB[1], TAB[2], "\nFake Limit" ..AA_S[i], 0, 60, 15, true, "°"),
     }
 end
 
@@ -1177,6 +1213,9 @@ local function handle_function_menu()
     -->> Go for custom
     ui_set_visible(fake_yaw.hide_menu, custom)
     ui_set_visible(fake_yaw.custom_menu, custom)
+
+    ui_set_visible(fake_yaw.config_import, custom and not is_hiding)
+    ui_set_visible(fake_yaw.config_export, custom and not is_hiding)
     for i=1, #AA_S do
         local set_visible = ui_get(fake_yaw.custom_menu) == AA_S[i]
         local visible = custom and set_visible and not is_hiding
@@ -1331,6 +1370,9 @@ local function antiaim_handler(cmd)
             else if is_rolling == false or fake_angle == false and not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
                 Jittering = true
                 jitter()
+                if cmd.chokedcommands ~= 0 then return end
+
+                
                 ui.set(ref.aa.yaw[2], antiaim_yaw_jitter(vars.yaw_left,vars.yaw_right))
                 ui.set(ref.aa.fyaw_limit, antiaim_yaw_jitter(vars.fake_limit_left,vars.fake_limit_right))
                 ui.set(ref.aa.jitter[2], antiaim_yaw_jitter(vars.jitter_left,vars.jitter_right))
@@ -1924,6 +1966,8 @@ local function handle_visible(state)
     ui.set_visible(fake_yaw.enable, state)
     ui.set_visible(fake_yaw.custom_menu, state)
     ui.set_visible(fake_yaw.hide_menu, state)
+    ui.set_visible(fake_yaw.config_import, state)
+    ui.set_visible(fake_yaw.config_export, state)
 end
 
 local function setup_command(cmd)
