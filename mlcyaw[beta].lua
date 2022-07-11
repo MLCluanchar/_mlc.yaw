@@ -1,9 +1,7 @@
-
 local anti_aim = require 'gamesense/antiaim_funcs'
 
 local ffi = require "ffi"
 local vector = require("vector")
-
 -- Libraries
 
 local buttons_e = {
@@ -56,6 +54,7 @@ local ref = {
 }
 local angle_t = ffi.typeof("struct { float pitch; float yaw; float roll; }")
 local vector3_t = ffi.typeof("struct { float x; float y; float z; }")
+local cast, typeof, cdef = ffi.cast, ffi.typeof, ffi.cdef
 
 local usercmd_t =
     ffi.typeof(
@@ -127,6 +126,95 @@ local g_pInput =
 
 
 
+local pi = 3.14159265358979323846
+local function d2r(value)
+	return value * (pi / 180)
+end
+
+local function vectorangle(x,y,z)
+	local fwd_x, fwd_y, fwd_z
+	local sp, sy, cp, cy
+	
+	sy = math.sin(d2r(y))
+	cy = math.cos(d2r(y))
+	sp = math.sin(d2r(x))
+	cp = math.cos(d2r(x))
+	fwd_x = cp * cy
+	fwd_y = cp * sy
+	fwd_z = -sp
+	return fwd_x, fwd_y, fwd_z
+end
+
+
+local function multiplyvalues(x,y,z,val)
+	x = x * val y = y * val z = z * val
+	return x, y, z
+end
+
+local function freestanding()
+    local localp = entity.get_local_player()
+    if entity_get_prop(localp, "m_lifeState") ~= 0 then
+        return false
+     --we are dead who cares
+    end
+
+    --ui.set(references.body_yaw[1], "Static")
+
+    local eyepos_x, eyepos_y, eyepos_z = entity_get_prop(localp, "m_vecAbsOrigin")
+    local offsetx, offsety, offsetz = entity_get_prop(localp, "m_vecViewOffset")
+    eyepos_z = eyepos_z + offsetz
+    local lowestfrac = 1
+    local dir = false
+    local cpitch, cyaw = client.camera_angles()
+    local fractionleft, fractionright = 0, 0
+    local amountleft, amountright = 0, 0
+
+    for i = -45, 45, 5 do
+        if i ~= 0 then
+            local fwdx, fwdy, fwdz = vectorangle(0, cyaw + i, 0)
+            fwdx, fwdy, fwdz = multiplyvalues(fwdx, fwdy, fwdz, 70)
+            --debug drawing if u want to play with the values
+
+            local fraction =
+                client.trace_line(
+                localp,
+                eyepos_x,
+                eyepos_y,
+                eyepos_z,
+                eyepos_x + fwdx,
+                eyepos_y + fwdy,
+                eyepos_z + fwdz
+            )
+            local outx, outy = renderer.world_to_screen(eyepos_x + fwdx, eyepos_y + fwdy, eyepos_z + fwdz)
+            if fraction < 1 then
+
+                  --renderer.rectangle(outx - 2, outy - 2, 4, 4, 0, 255, 0, 255)
+            else
+                --renderer.rectangle(outx - 2, outy - 2, 4, 4, 255, 255, 255, 255)
+
+            end
+            if i > 0 then
+                fractionleft = fractionleft + fraction
+                amountleft = amountleft + 1
+            else
+                fractionright = fractionright + fraction
+                amountright = amountright + 1
+            end
+        end
+    end
+
+    local averageleft, averageright = fractionleft / amountleft, fractionright / amountright
+
+    if averageleft < averageright then
+        return "left"
+    elseif averageleft > averageright then
+        return "right"
+    else
+        return "none"
+    end
+end
+
+
 local lua_log = function(...) --inspired by sapphyrus' multicolorlog
     client.color_log(255, 59, 59, "[ mlc.yaw ]\0")
     local arg_index = 1
@@ -181,23 +269,20 @@ local references = {
     -- end of menu references and menu creation
 }
 local onshot, onshotkey = ui.reference('aa', 'other', 'On shot anti-aim')
-local slider_adjust = ui.new_slider("AA", "Anti-aimbot angles", "Roll Angle", 0, 90, 50, true, "°")
+local function on_setup_command(cmd)
+    g_pOldAngles = vector(cmd.pitch, cmd.yaw, cmd.roll)
+end
+local slider_adjust = ui.new_slider("AA", "Anti-aimbot angles", "Roll", 0, 90, 50, true, "")
 local slider_roll = ui.new_slider("AA", "Anti-aimbot angles", "Roll Angle", -90, 90, 50, true, "°")
 
-ui.set_visible(slider_roll, false)
-local function anti_untrust()
-    ui.set(references.untrust, (ui.get(slider_adjust) < 51))
-end
-
-client.set_event_callback('setup_command', anti_untrust)
 local Exploit_mode_combobox =
     ui.new_multiselect(
     "AA",
     "Anti-aimbot angles",
     "Enable Exploit",
     "Roll Angle",
-    "Untrusted pitch",
-    "Lower body yaw",
+    "LBY",
+    "LBY Break",
     "Fake Angle",
     "Fake Yaw",
     "\aB6B665FFValve Server Bypass"
@@ -224,6 +309,7 @@ local misc_combobox =
     "Legit Anti-aim on use",
     "Fast Zeus"
 )
+
 local b = {
     teleport_key = ui_new_hotkey("AA", "Other", "Teleport key"),
     indicators = ui_new_multiselect("AA", "Anti-aimbot angles", "Enable Indicators", "Status Netgraph", "Debug"),
@@ -233,15 +319,7 @@ local b = {
     in_air_roll = ui_new_slider("AA","Anti-aimbot angles","Customized Roll in air",  -50, 50, 50, true, " ")
 }
 
-local key3 = ui.new_hotkey("AA", "Anti-aimbot angles", "Force Rolling Angle on Key (Speed Decrease)")
-
-local untrust = { 
-    key_left = ui.new_hotkey("AA", "Anti-aimbot angles", "Override Untrust Left"),
-    key_right = ui.new_hotkey("AA", "Anti-aimbot angles", "Override Untrust Right")
-}
-
-ui.set_visible(untrust.key_left, false)
-ui.set_visible(untrust.key_right, false)
+local key3 = ui.new_hotkey("AA", "Anti-aimbot angles", "On Key")
 
 local function velocity()
     local me = entity_get_local_player()
@@ -261,13 +339,6 @@ local tag = {
 }
 
 
-ui.set_visible(b.velocity_slider, false)
-ui.set_visible(b.stamina_slider, false)
-ui.set_visible(b.checkbox_hitchecker, false)
-ui.set_visible(b.in_air_roll, false)
-ui.set_visible(references.roll[1], false)
-ui.set_visible(b.checkbox_hitchecker, false)
-
 local TIME = 0
 
 -----------------Valve Sever Bypasser-----------------
@@ -275,29 +346,20 @@ local gamerules_ptr = client.find_signature("client.dll", "\x83\x3D\xCC\xCC\xCC\
 local gamerules = ffi.cast("intptr_t**", ffi.cast("intptr_t", gamerules_ptr) + 2)[0]
 local is_valve_spoof = false
 local ticks_user = ui.reference("misc", "settings", "sv_maxusrcmdprocessticks")
-client.set_event_callback("setup_command", function()
+local function valve_ds()
     local is_valve_ds = ffi.cast('bool*', gamerules[0] + 124)
     if is_valve_ds ~= nil then
         if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then
             is_valve_ds[0] = 0
             is_valve_spoof = true
-            ui.set(ticks_user, 18)
+            ui.set(ticks_user, 7)
         else 
             is_valve_spoof = false
             ui.set(ticks_user, 18)
         end
     end
-end)
+end
 
-ui.set_visible(references.fake_lag_limit, false)
-client.set_event_callback("shutdown", function()
-    local is_valve_ds = ffi.cast('bool*', gamerules[0] + 124)
-    if is_valve_spoof == true then 
-        is_valve_ds[0] = 0
-    end
-    ui.set_visible(references.fake_lag_limit, true)
-end)
---------
 ---------------The end of Sever Bypasser---------------
 
 --------------Movement state--------------
@@ -309,10 +371,8 @@ end
 
 local function stamina_bind()
     if contains(ui.get(static_mode_combobox), "Low Stamina") then
-        ui.set_visible(b.stamina_slider, true)
         return ui.get(b.stamina_slider)
     else
-        ui.set_visible(b.stamina_slider, false)
         return 0
     end
 end
@@ -325,8 +385,6 @@ end
 local function hit_bind()
     local hit_health = on_hit()
     if contains(ui.get(static_mode_combobox), "< Speed Velocity") then
-        ui.set_visible(b.velocity_slider, true)
-        ui.set_visible(b.checkbox_hitchecker, true)
         if ui.get(b.checkbox_hitchecker) and hit_health <= 0.9 then
             return 0
         else if is_on_ladder == 1 then
@@ -336,8 +394,6 @@ local function hit_bind()
             end
         end
     end
-    ui.set_visible(b.velocity_slider, false)
-    ui.set_visible(b.checkbox_hitchecker, false)
     return 0
 end
 
@@ -354,17 +410,14 @@ local function Ladder_status()
     return ladd_stat
 end
 
-client.set_event_callback(
-    "setup_command",
-    function(e)
-        local local_player = entity.get_local_player()
-        if entity.get_prop(local_player, "m_MoveType") == 9 then
-            is_on_ladder = 1
-        else
-            is_on_ladder = 0
-        end
+local function ladd_State()
+    local local_player = entity.get_local_player()
+    if entity.get_prop(local_player, "m_MoveType") == 9 then
+        is_on_ladder = 1
+    else
+        is_on_ladder = 0
     end
-)
+end
 
 --------------In Air Checker--------------
 local function inair()
@@ -387,9 +440,9 @@ end
 local function roll_bind()
     local roll_set = ui.get(slider_roll)
     if contains(ui.get(static_mode_combobox), "In Air") then
-        ui.set_visible(b.in_air_roll, true)
+
     else
-        ui.set_visible(b.in_air_roll, false)
+
     end
     if air_status() == 1 then
         roll_set = ui.get(b.in_air_roll)
@@ -402,241 +455,168 @@ end
 local function hide_keys()
     local key100 = 1
     if contains(ui.get(static_mode_combobox), "On Key") then
-        ui.set_visible(key3, true)
+
     else
-        ui.set_visible(key3, false)
+
         return key100
     end
 end
 --------------------Main Functions for Rolling--------------------
 local is_rolling = false
-client.set_event_callback("run_command", function(cmd)
-        hide_keys()
-        stamina_bind()
-        hit_bind()
-        local speed = velocity()
-        local recovery = stamina()
-        if contains(ui.get(Exploit_mode_combobox), "Roll Angle") then
-            if air_status() == 0 and not ui.get(key3) and speed >= hit_bind() and recovery >= stamina_bind() and Ladder_status() == 0 then
-                is_rolling = false
+local function roll_angle(cmd)
+    
+    hide_keys()
+    stamina_bind()
+    hit_bind()
+    local speed = velocity()
+    local recovery = stamina()
+    if contains(ui.get(Exploit_mode_combobox), "Roll Angle") then
+        if air_status() == 0 and not ui.get(key3) and speed >= hit_bind() and recovery >= stamina_bind() and Ladder_status() == 0 then
+            is_rolling = false
+            return
+        end
+            -- your aa
+            is_rolling = true
+            local local_player = entity_get_local_player()
+            if not entity_is_alive(local_player) then
                 return
             end
-                -- your aa
-                is_rolling = true
-                local local_player = entity_get_local_player()
-                if not entity_is_alive(local_player) then
-                    return
-                end
-                local pUserCmd = g_pInput.vfptr.GetUserCmd(ffi.cast("uintptr_t", g_pInput), 0, cmd.command_number)
+            local pUserCmd = g_pInput.vfptr.GetUserCmd(ffi.cast("uintptr_t", g_pInput), 0, cmd.command_number)
 
-                local my_weapon = entity.get_player_weapon(local_player)
-                local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
-                local is_grenade =
-                    ({
-                    [43] = true,
-                    [44] = true,
-                    [45] = true,
-                    [46] = true,
-                    [47] = true,
-                    [48] = true,
-                    [68] = true
-                })[wepaon_id] or false
+            local my_weapon = entity.get_player_weapon(local_player)
+            local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
+            local is_grenade =
+                ({
+                [43] = true,
+                [44] = true,
+                [45] = true,
+                [46] = true,
+                [47] = true,
+                [48] = true,
+                [68] = true
+            })[wepaon_id] or false
 
-                if is_grenade then
-                    local throw_time = entity_get_prop(my_weapon, "m_fThrowTime")
-                    if
-                        bit_band(pUserCmd.buttons, buttons_e.attack) == 0 or
-                            bit_band(pUserCmd.buttons, buttons_e.attack_2) == 0
-                     then
-                        if throw_time > 0 then
-                            return
-                        end
+            if is_grenade then
+                local throw_time = entity_get_prop(my_weapon, "m_fThrowTime")
+                if
+                    bit_band(pUserCmd.buttons, buttons_e.attack) == 0 or
+                        bit_band(pUserCmd.buttons, buttons_e.attack_2) == 0
+                 then
+                    if throw_time > 0 then
+                        return
                     end
                 end
+            end
 
-                -- +use to disable like any anti aim
-                --if bit_band(pUserCmd.buttons, buttons_e.use) > 0 then
-                --return
-                --end
+            -- +use to disable like any anti aim
+            --if bit_band(pUserCmd.buttons, buttons_e.use) > 0 then
+            --return
+            --end
 
-                --if bit_band(pUserCmd.buttons, buttons_e.attack) > 0 then
-                --return
-                --end
+            --if bit_band(pUserCmd.buttons, buttons_e.attack) > 0 then
+            --return
+            --end
 
-                --if wepaon_id == 64 and bit_band(pUserCmd.buttons, buttons_e.attack_2) > 0 then
-                --return
-                --end
+            --if wepaon_id == 64 and bit_band(pUserCmd.buttons, buttons_e.attack_2) > 0 then
+            --return
+            --end
+            pUserCmd.viewangles.roll = roll_bind()
+            --    g_ForwardMove = pUserCmd.forwardmove
+            --    g_SideMove = pUserCmd.sidemove
+            --    g_pOldAngles = vector(pUserCmd.viewangles.pitch, pUserCmd.viewangles.yaw, pUserCmd.viewangles.roll)
 
-                if contains(ui.get(Exploit_mode_combobox), "Untrusted pitch") then
-                    if inair() or velocity() < 3 then 
-                        is_rolling = true
-                        local angles = {client.camera_angles()}
-                        local key_states = (ui.get(untrust.key_left) and -90) or (ui.get(untrust.key_right) and 90) or 0
-                        local state = anti_aim.get_desync(1) > 0 and 180 or -180
-                        pUserCmd.viewangles.pitch = 150
-                        pUserCmd.viewangles.yaw = angles[2] + state + key_states
-                        ui.set_visible(untrust.key_left, true)
-                        ui.set_visible(untrust.key_right, true)
-                    end
-                else
-                    ui.set_visible(untrust.key_left, false)
-                    ui.set_visible(untrust.key_right, false)
-                end
-                pUserCmd.viewangles.roll = roll_bind()
-                --    g_ForwardMove = pUserCmd.forwardmove
-                --    g_SideMove = pUserCmd.sidemove
-                --    g_pOldAngles = vector(pUserCmd.viewangles.pitch, pUserCmd.viewangles.yaw, pUserCmd.viewangles.roll)
+            if contains(ui.get(b.indicators), "Debug") then
+            --        pUserCmd.forwardmove = math_clamp(new_forward, -450.0, 450.0)           not working properly
+            --        pUserCmd.sidemove = math_clamp(new_side, -450.0, 450.0)
+            end
+        else
+            is_rolling = false
+    end
+end
 
-                if contains(ui.get(b.indicators), "Debug") then
-                --        pUserCmd.forwardmove = math_clamp(new_forward, -450.0, 450.0)           not working properly
-                --        pUserCmd.sidemove = math_clamp(new_side, -450.0, 450.0)
-                end
-            else
-                is_rolling = false
-        end
-
-end)
 
 --------------------Main Functions for fake angle--------------------
 local speed_slider = ui.new_slider("AA", "Anti-aimbot angles", "Fake Angle Speed Trigger", 0, 250, 10, true, " ")
 local fake_angle = false
 local num = 90
-local m_cur_ticks_handled = 0
-local last_choke = 0
-local choke = 0
-local last_validate_choke = 0
+local function fake_angle_handler(cmd)
+    local reverse_num = 180
+    if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then return end
+    local speed = velocity()
+    fake_angle = false
+    if contains(ui.get(Exploit_mode_combobox), "Fake Angle") then
+        if inair() or stamina() < 79 or velocity() < ui.get(speed_slider) then return end
+        if ui.get(references.doubletap[2]) then return end
+            local pUserCmd = g_pInput.vfptr.GetUserCmd(ffi.cast("uintptr_t", g_pInput), 0, cmd.command_number)
+            local local_player = entity_get_local_player()
+            local my_weapon = entity.get_player_weapon(local_player)
+            local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
+            local is_grenade =
+                ({
+                [43] = true,
+                [44] = true,
+                [45] = true,
+                [46] = true,
+                [47] = true,
+                [48] = true,
+                [68] = true
+            })[wepaon_id] or false
 
-
-local can_break_tick = false;
-local previous_tick = -1;
-
-
-
-client.set_event_callback(
-    "setup_command",
-    function(cmd)
-        local is_valve = contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass")
-        ui.set(references.fake_lag_limit, (is_valve and 6) or 15)
-        local speed = velocity()
-        fake_angle = false
-        if contains(ui.get(Exploit_mode_combobox), "Fake Angle") then
-            if inair() or stamina() < 79 or velocity() < ui.get(speed_slider) then return end
-            if ui.get(references.doubletap[2]) then return end
-                local pUserCmd = g_pInput.vfptr.GetUserCmd(ffi.cast("uintptr_t", g_pInput), 0, cmd.command_number)
-                local local_player = entity_get_local_player()
-                local my_weapon = entity.get_player_weapon(local_player)
-                local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
-                local is_grenade =
-                    ({
-                    [43] = true,
-                    [44] = true,
-                    [45] = true,
-                    [46] = true,
-                    [47] = true,
-                    [48] = true,
-                    [68] = true
-                })[wepaon_id] or false
-
-                if is_grenade then
-                    local throw_time = entity_get_prop(my_weapon, "m_fThrowTime")
-                    if
-                        bit_band(pUserCmd.buttons, buttons_e.attack) == 0 or
-                            bit_band(pUserCmd.buttons, buttons_e.attack_2) == 0
-                     then
-                        if throw_time > 0 then
-                            return
-                        end
+            if is_grenade then
+                local throw_time = entity_get_prop(my_weapon, "m_fThrowTime")
+                if
+                    bit_band(pUserCmd.buttons, buttons_e.attack) == 0 or
+                        bit_band(pUserCmd.buttons, buttons_e.attack_2) == 0
+                 then
+                    if throw_time > 0 then
+                        return
                     end
                 end
+            end
 
-                -- +use to disable like any anti aim
-                if bit_band(pUserCmd.buttons, buttons_e.use) > 0 then
-                    return
-                end
+            -- +use to disable like any anti aim
+            if bit_band(pUserCmd.buttons, buttons_e.use) > 0 then
+                return
+            end
 
-                if bit_band(pUserCmd.buttons, buttons_e.attack) > 0 then
-                    return
-                end
+            if bit_band(pUserCmd.buttons, buttons_e.attack) > 0 then
+                return
+            end
 
-                if wepaon_id == 64 and bit_band(pUserCmd.buttons, buttons_e.attack_2) > 0 then
-                    return
-                end
+            if wepaon_id == 64 and bit_band(pUserCmd.buttons, buttons_e.attack_2) > 0 then
+                return
+            end
 
-                if inair() then
-                    return
+            if inair() then
+                return
+            end
+            cmd.allow_send_packet = false
+            local Left = client.key_state(0x41)
+            local Right = client.key_state(0x44)
+            if Left == true then
+                num = 70
+                reverse_num = 180
+                else if Right == true then
+                    num = 240
+                    reverse_num = 180
                 end
-                fake_angle = true
-                ui.set(references.fake_lag_limit, 17)
-
-                -----------Handling fake angle----------------
-                local curtimeofflick = globals.curtime()
-
-                if cmd.chokedcommands < last_choke then
-                    choke = last_choke
-                    m_cur_ticks_handled = m_cur_ticks_handled + 1
-                end
-            
-                last_choke = cmd.chokedcommands
-            
-                cmd.allow_send_packet = (cmd.chokedcommands >= 17)
-            
-                if cmd.allow_send_packet then
-                    last_validate_choke = last_choke+1
-                end
-            
-                if choke == 0 then
-                    if previous_tick >= 18 then
-                        last_choke = previous_tick-1;
-                    elseif previous_tick >= 17 then
-                        last_choke = previous_tick+1;
-                    end
-                elseif choke == ui.get(fakelag_limit) then
-                    last_choke = choke + 2
-                end
-            
-                if choke > 0 and last_choke ~= 1 then
-                    if previous_tick > choke then
-                        can_break_tick = true;
-                        previous_tick = -1;
-                    else
-                        previous_tick = choke
-                        can_break_tick = last_choke > 16 and cmd.chokedcommands <= 3 or false
-                        can_break_tick = last_choke > choke and cmd.chokedcommands ~= last_choke or false
-                        can_break_tick = last_validate_choke > 16 and cmd.chokedcommands <= 3 or false
-                        can_break_tick = last_validate_choke > choke and cmd.chokedcommands ~= last_validate_choke or false
-                        can_break_tick = last_choke > 3 and cmd.chokedcommands <= 3 or false
-                        if ui.get( doubletap ) and ui.get( doubletap_state ) or ui.get( onshot ) and ui.get( onshot_state ) then
-                            if globals.curtime() > curtimeofflick + 0.04 then
-                                can_break_tick = true
-                                curtimeofflick = globals.curtime()
-                            else
-                                can_break_tick = false
-                            end
-                        end
-                    end
-                end
-                
-        end
+                num = num 
+                reverse_num = reverse_num
+            end
+            ui.set(references.fake_lag_limit, 17)
+            local angles = {client.camera_angles()}
+            fake_angle = true
+            if (cmd.chokedcommands % 2 == 0) then
+                cmd.allow_send_packet = false
+                cmd.yaw = angles[2] + num
+                cmd.pitch = 80, angles[1]
+            else
+                cmd.yaw = angles[2] + reverse_num
+                cmd.pitch = 80, angles[1] - 80
+            end
     end
-)
-
-local function fake_flick_handle()
-
-    if can_break_tick then
-        ui.set(references.body_yaw[2], 49)
-        ui.set(references.fake_yaw_limit   , 60)
-        ui.set(references.yaw[2], 15)
-        ui.set(references.jitter[2], 7)
-    else
-        ui.set(references.body_yaw[2], -49)
-        ui.set(references.fake_yaw_limit   , 60)
-        ui.set(references.yaw[2], -15)
-        ui.set(references.jitter[2], -7)
-    end
-
 end
 
-client.set_event_callback("predict_command", fake_flick_handle)
 client.set_event_callback("paint", function()
     if not contains(ui.get(Exploit_mode_combobox), "Fake Angle") then return end
     if num > 90 then
@@ -648,9 +628,9 @@ end)
 
 ---------------------Polygens
 
-local renderer_circle = renderer.circle
 
 local m_render_engine = (function()
+    local renderer_circle = renderer.circle
 	local a = {}
 	local b = function(c, d, e, f, g, h, i, j, k)
 		renderer_rectangle(c + g, d, e - g * 2, g, h, i, j, k)
@@ -722,27 +702,29 @@ local m_render_engine = (function()
 end)()
 
 -------------------Teleport function-------------------
+--[[
 local double_tap, double_tap_key = ui.reference('Rage','Other','Double tap')
 local fakeducking = ui.reference('RAGE', 'Other', 'Duck peek assist')
 local limit = ui.reference('aa', 'Fake lag', 'Limit')
 local box, key = ui.reference( 'Rage', 'Other', 'Quick peek assist' )
 
+
+local is_tp
 function teleport()
     if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then return end
     local getstate = ui.get(b.teleport_key) and not ui.get(fakeducking) 
     local is_tp = getstate
-    ui.set(key, getstate and 'On hotkey' or 'On hotkey')
-    ui.set(double_tap_key, getstate and 'Always on' or 'toggle')
     if fake_angle == true then
         ui.set(limit, getstate and 1 or 17)
         else
         ui.set(limit, getstate and 1 or 15)
     end
 end
+]]
 
 -------------Gradient Text
 
-local function gradient_text(r1, g1, b1, a1, r2, g2, b2, a2, text)
+function gradient_text(r1, g1, b1, a1, r2, g2, b2, a2, text)
 	local output = ''
 
 	local len = #text-1
@@ -765,7 +747,7 @@ local function gradient_text(r1, g1, b1, a1, r2, g2, b2, a2, text)
 	return output
 end
 -------------------------Render LBY Circle---------------------
-local function draw_circle_3d(x, y, z, radius, degrees, start_at, r, g, b, a)
+function draw_circle_3d(x, y, z, radius, degrees, start_at, r, g, b, a)
 	local accuracy = 10/10
     local old = { x, y }
 	for rot=start_at, degrees+start_at, accuracy do
@@ -786,7 +768,7 @@ function left_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  -7)
     ui.set(references.body_yaw[2], -180)
-    ui.set(slider_roll, ui.get(slider_adjust))
+    ui.set(slider_roll, -ui.get(slider_adjust))
     ui.set(b.in_air_roll, 50)
     ui.set(references.jitter[2], 0)
 end
@@ -794,7 +776,7 @@ function right_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  7)
     ui.set(references.body_yaw[2], 180)
-    ui.set(slider_roll, -(ui.get(slider_adjust)))
+    ui.set(slider_roll, (ui.get(slider_adjust)))
     ui.set(b.in_air_roll, -50)
     ui.set(references.jitter[2], 0)
 end
@@ -951,7 +933,7 @@ local function distance_3d( x1, y1, z1, x2, y2, z2 )
 end
 
 -- function for extrapolating player
-function extrapolate( player , ticks , x, y, z )
+local function extrapolate( player , ticks , x, y, z )
     local xv, yv, zv =  entity.get_prop( player, "m_vecVelocity" )
     local new_x = x+globals.tickinterval( )*xv*ticks
     local new_y = y+globals.tickinterval( )*yv*ticks
@@ -962,7 +944,7 @@ end
 -- end of functions to help with on peeking and getting peeked functions
 
 -- this is the start of a function for detecting whether the local player is peeking an enemy
-function is_enemy_peeking( player )
+local function is_enemy_peeking( player )
     local speed = velocity()
     if speed < 5 then
         return false
@@ -988,7 +970,7 @@ end
 -- this is the end of a function for detecting whether the local player is peeking an enemy
 
 -- this is the start of a function for detecting whether the enemy is peeking the local player
-function is_local_peeking_enemy( player )
+local function is_local_peeking_enemy( player )
     local speed = velocity()
     if speed < 5 then
         return false
@@ -1063,7 +1045,26 @@ if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
 end
 
 -- this is the end of a function for detecting whether the enemy is peeking the local player
+
+
 local status = "WAITING"
+local AA_S = {     "High Speed (E)", "High Speed (F)", 
+                    "Low Speed (E)", "Low Speed (F)", 
+                    "In Air (H)", "In Air (L)",}
+-----this is pretty scuff i will make a better one recently
+
+local vars = {
+
+    yaw_left = 0,
+    yaw_right = 0,
+    jitter_left = 0,
+    jitter_right = 0,
+    fake_limit_left = 0,
+    fake_limit_right = 0,
+    jitter_set = 0,
+    preset_state = 'wait',
+
+}
 
 local function antiaim_yaw_jitter(a,b)
     local desync = entity_get_prop(entity_get_local_player(), "m_flPoseParameter", 11) * 120 - 60
@@ -1071,72 +1072,170 @@ local function antiaim_yaw_jitter(a,b)
     status = (overlap > 0.7 and "FAKE YAW +/-") or "OVERLAP-"
     return (desync < 0 and overlap > 0.6 and a or b)
 end
------this is pretty scuff i will make a better one recently
-local yaw_left
-local yaw_right
-local jitter_set
-local preset_state = 'wait'
 
+local Antiaim = {}
 
-local function lean_lby(cmd, status)
-
-    --something important is minified but i dont want to waste time on deleting to seperate those
-
-    if (entity.get_prop(entity.get_local_player(), "m_MoveType") or 0) == 9 then return end
-
-    local lean_bodyyaw = anti_aim.get_desync(2)
-
-    if lean_bodyyaw == nil then return end
-    
-
-
-    -------------Ignoring nades
-    local local_player = entity_get_local_player()
-    local my_weapon = entity.get_player_weapon(local_player)
-    local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
-    local is_grenade =
-        ({
-        [43] = true,
-        [44] = true,
-        [45] = true,
-        [46] = true,
-        [47] = true,
-        [48] = true,
-        [68] = true
-    })[wepaon_id] or false
-    
-    if is_grenade then
-        if cmd.in_attack == 1 or cmd.in_attack2 == 1 then return end
+local function export_config()
+    local settings = {}
+    local clipboard = require("gamesense/clipboard")
+    local base64 = require("gamesense/base64")
+    for key, value in pairs(AA_S) do
+        settings[tostring(value)] = {}
+        for k, v in pairs(Antiaim[key]) do
+            print(ui_get(v))
+        end
     end
 
-    -----------------Ignore grenade end
+    clipboard.set(json.stringify(settings), "base64")
 
-    if math.abs(anti_aim.get_desync(2)) < 15 or cmd.chokedcommands == 0 then return end
+end
 
-    ::ignore::
-
-
-    if ui.get(references.quick_peek[2]) then return end
-
-    if velocity() > 50 then return end
-
-    cmd.in_forward = status
-
-    --handling standalone quick stop without using cmd
-
-
-    local w = client.key_state(0x57)
-    local s = client.key_state(0x53)
-    local space = client.key_state(0x20)
-
-    --local resgine = (velocity() < 50 and not w and not contains(ui.get(aa.combobox_antiaim), "LBY Breaker") and not s and not space and 1) or 0
-
-    --cmd.forwardmove = 0
+local function import_config()
+    local clipboard = require("gamesense/clipboard")
+    local base64 = require("gamesense/base64")
+    local settings = json.parse(clipboard.get())
+    for key, value in pairs(AA_S) do
+        for k, v in pairs(Antiaim[key]) do
+            local current = settings[value][k]
+            if (current ~= nil) then
+                ui_set(v, current)
+            end
+        end
+    end
 
 end
 
 
+local TAB =  { "AA", "Anti-aimbot angles"} 
+local fake_yaw = {
+
+    enable = ui_new_combobox( TAB[1], TAB[2], "Fake Yaw Preset", 
+    "Preset", "Costum"),
+
+    custom_menu = ui_new_combobox( TAB[1], TAB[2], "Customized State", AA_S),
+
+    hide_menu = ui_new_checkbox( TAB[1], TAB[2], "Hide Preset Panel", false),
+
+
+    config_export = ui_new_button( TAB[1], TAB[2], "Export Preset", export_config),
+    config_import = ui_new_button( TAB[1], TAB[2], "Import Preset", import_config)
+}
+
+for i = 1, #AA_S do
+    Antiaim[i] = {
+        yaw_left = ui_new_slider( TAB[1], TAB[2], "Yaw +/-" ..AA_S[i], -180, 180, 15, true, "°"),
+        yaw_right = ui_new_slider( TAB[1], TAB[2], "\nYaw +/-" ..AA_S[i], -180, 180, 15, true, "°"),
+
+        jitter_left = ui_new_slider( TAB[1], TAB[2], "Yaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, "°"),
+        jitter_right = ui_new_slider( TAB[1], TAB[2], "\nYaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, "°"), 
+
+        fake_limit_left = ui_new_slider( TAB[1], TAB[2], "Fake Limit +/-" ..AA_S[i], 0, 60, 15, true, "°"),
+        fake_limit_right = ui_new_slider( TAB[1], TAB[2], "\nFake Limit" ..AA_S[i], 0, 60, 15, true, "°"),
+    }
+end
+
+local function init_preset()
+
+    ui_set(Antiaim[1].yaw_left,0)
+    ui_set(Antiaim[1].yaw_right,12)
+    ui_set(Antiaim[1].jitter_left,70)
+    ui_set(Antiaim[1].jitter_right,90)
+    ui_set(Antiaim[1].fake_limit_left,55)
+    ui_set(Antiaim[1].fake_limit_right,59)
+
+    ui_set(Antiaim[2].yaw_left,0)
+    ui_set(Antiaim[2].yaw_right,0)
+    ui_set(Antiaim[2].jitter_left,0)
+    ui_set(Antiaim[2].jitter_right,0)
+    ui_set(Antiaim[2].fake_limit_left,60)
+    ui_set(Antiaim[2].fake_limit_right,60)
+
+    ui_set(Antiaim[3].yaw_left,12)
+    ui_set(Antiaim[3].yaw_right,9)
+    ui_set(Antiaim[3].jitter_left,36)
+    ui_set(Antiaim[3].jitter_right,40)
+    ui_set(Antiaim[3].fake_limit_left,50)
+    ui_set(Antiaim[3].fake_limit_right,59)
+
+    ui_set(Antiaim[4].yaw_left,0)
+    ui_set(Antiaim[4].yaw_right,0)
+    ui_set(Antiaim[4].jitter_left,0)
+    ui_set(Antiaim[4].jitter_right,0)
+    ui_set(Antiaim[4].fake_limit_left,60)
+    ui_set(Antiaim[4].fake_limit_right,60)
+
+    ui_set(Antiaim[5].yaw_left,18)
+    ui_set(Antiaim[5].yaw_right,12)
+    ui_set(Antiaim[5].jitter_left,46)
+    ui_set(Antiaim[5].jitter_right,45)
+    ui_set(Antiaim[5].fake_limit_left,55)
+    ui_set(Antiaim[5].fake_limit_right,59)
+
+    ui_set(Antiaim[6].yaw_left,18)
+    ui_set(Antiaim[6].yaw_right,12)
+    ui_set(Antiaim[6].jitter_left,46)
+    ui_set(Antiaim[6].jitter_right,45)
+    ui_set(Antiaim[6].fake_limit_left,55)
+    ui_set(Antiaim[6].fake_limit_right,59)
+end
+
+local function handle_function_menu()
+
+    -->> Roll Angle Section
+    local rollangle = contains(ui_get(Exploit_mode_combobox), "Roll Angle")
+    ui_set_visible(static_mode_combobox, rollangle)
+    
+    -->> Select mode
+    local inair = contains(ui_get(static_mode_combobox), "In Air") and rollangle
+    ui_set_visible(b.in_air_roll, inair)
+
+    local stamina = contains(ui_get(static_mode_combobox), "Low Stamina") and rollangle
+    ui_set_visible(b.stamina_slider, stamina)
+
+    local speed = contains(ui.get(static_mode_combobox), "< Speed Velocity") and rollangle
+    ui_set_visible(b.velocity_slider, speed)
+    ui_set_visible(b.checkbox_hitchecker, speed)
+
+    local on_key = contains(ui_get(static_mode_combobox), "On Key") and rollangle
+    ui_set_visible(key3, on_key)
+
+    -----------------------------------------------
+
+    -->> Fake Yaw Section
+    local fakeyaw = contains(ui_get(Exploit_mode_combobox), "Fake Yaw")
+
+    -->> Select mode
+    ui.set_visible(fake_yaw.enable, fakeyaw)
+    local preset = ui_get(fake_yaw.enable) == "Preset"
+    local custom = ui_get(fake_yaw.enable) == "Costum" and fakeyaw
+    local is_hiding = ui_get(fake_yaw.hide_menu)
+    -->> Go for preset
+    if preset then init_preset() end
+
+    -->> Go for custom
+    ui_set_visible(fake_yaw.hide_menu, custom)
+    ui_set_visible(fake_yaw.custom_menu, custom)
+
+    ui_set_visible(fake_yaw.config_import, custom and not is_hiding)
+    ui_set_visible(fake_yaw.config_export, custom and not is_hiding)
+    for i=1, #AA_S do
+        local set_visible = ui_get(fake_yaw.custom_menu) == AA_S[i]
+        local visible = custom and set_visible and not is_hiding
+
+        ui_set_visible(Antiaim[i].yaw_left, visible)
+        ui_set_visible(Antiaim[i].yaw_right, visible)
+        ui_set_visible(Antiaim[i].jitter_left, visible)
+        ui_set_visible(Antiaim[i].jitter_right, visible)
+        ui_set_visible(Antiaim[i].fake_limit_left, visible)
+        ui_set_visible(Antiaim[i].fake_limit_right, visible)
+    end
+
+end
+
 local function antiaim_logic()
+
+
+
 
 	local local_player = entity.get_local_player()
 	
@@ -1144,45 +1243,82 @@ local function antiaim_logic()
 		return
 	end
 
+    local current_threat = client.current_threat()
+    local origin_local = vector(entity_get_origin(local_player))
+    local origin_threat = (current_threat ~= nil and vector(entity_get_origin(current_threat)) or nil)
+
+    local height = (origin_threat ~= nil and (origin_local.z > origin_threat.z + 10)) or false
+
+    local is_expoliting =  contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") or ui.get(references.doubletap[2]) or ui.get(onshotkey)
 	--standing->moving->inair
     -------------------Velocity is speed check
+
+
 	if velocity() > 90 then
-        if ui.get(references.doubletap[2]) then
+        if is_expoliting then
             --DT HIGH SPEED
-		    preset_state = 'MOVING(DT)'
-            yaw_left = 20
-            yaw_right = -14
-            jitter_set = 53
+		    vars.preset_state = 'MOVING(DT)'
+            vars.yaw_left = ui_get(Antiaim[1].yaw_left)
+            vars.yaw_right = ui_get(Antiaim[1].yaw_right)
+            vars.jitter_left = ui_get(Antiaim[1].jitter_left)
+            vars.jitter_right = ui_get(Antiaim[1].jitter_right)
+            vars.fake_limit_left = ui_get(Antiaim[1].fake_limit_left)
+            vars.fake_limit_right = ui_get(Antiaim[1].fake_limit_right)
+
         else
             --FAKE LAG HIGH SPEED
-            preset_state = 'MOVING(FL)'
-            yaw_left = 0
-            yaw_right = 0
-            jitter_set = 0
+            vars.preset_state = 'MOVING(FL)'
+            vars.yaw_left = ui_get(Antiaim[2].yaw_left)
+            vars.yaw_right = ui_get(Antiaim[2].yaw_right)
+            vars.jitter_left = ui_get(Antiaim[2].jitter_left)
+            vars.jitter_right = ui_get(Antiaim[2].jitter_right)
+            vars.fake_limit_left = ui_get(Antiaim[2].fake_limit_left)
+            vars.fake_limit_right = ui_get(Antiaim[2].fake_limit_right)
         end
 	else
-        if ui.get(references.doubletap[2]) then
+        if is_expoliting then
             --DT LOW SPEED
-		    preset_state = 'STANDING(DT)'
-            yaw_left = -15
-            yaw_right = 15
-            jitter_set = 54
+		    vars.preset_state = 'STANDING(DT)'
+            vars.yaw_left = ui_get(Antiaim[3].yaw_left)
+            vars.yaw_right = ui_get(Antiaim[3].yaw_right)
+            vars.jitter_left = ui_get(Antiaim[3].jitter_left)
+            vars.jitter_right = ui_get(Antiaim[3].jitter_right)
+            vars.fake_limit_left = ui_get(Antiaim[3].fake_limit_left)
+            vars.fake_limit_right = ui_get(Antiaim[3].fake_limit_right)
+
         else
             --FAKE LAG STANDING
-            preset_state = 'STANDING(FL)'
-            yaw_left = 0
-            yaw_right = 0
-            jitter_set = 0
+            vars.preset_state = 'STANDING(FL)'
+            vars.yaw_left = ui_get(Antiaim[4].yaw_left)
+            vars.yaw_right = ui_get(Antiaim[4].yaw_right)
+            vars.jitter_left = ui_get(Antiaim[4].jitter_left)
+            vars.jitter_right = ui_get(Antiaim[4].jitter_right)
+            vars.fake_limit_left = ui_get(Antiaim[4].fake_limit_left)
+            vars.fake_limit_right = ui_get(Antiaim[4].fake_limit_right)
         end
     end
 
 	if inair() then
         --IN AIR
-		preset_state = 'INAIR'
-        yaw_left = -12
-        yaw_right = 6
-        jitter_set = 53
-		ui.set(references.body_yaw[2], 5)
+        if height then
+            vars.preset_state = 'INAIR (H)'
+            vars.yaw_left = ui_get(Antiaim[5].yaw_left)
+            vars.yaw_right = ui_get(Antiaim[5].yaw_right)
+            vars.jitter_left = ui_get(Antiaim[5].jitter_left)
+            vars.jitter_right = ui_get(Antiaim[5].jitter_right)
+            vars.fake_limit_left = ui_get(Antiaim[5].fake_limit_left)
+            vars.fake_limit_right = ui_get(Antiaim[5].fake_limit_right)
+            ui.set(references.body_yaw[2], 5)
+        else
+            vars.preset_state = 'INAIR (L)'
+            vars.yaw_left = ui_get(Antiaim[6].yaw_left)
+            vars.yaw_right = ui_get(Antiaim[6].yaw_right)
+            vars.jitter_left = ui_get(Antiaim[6].jitter_left)
+            vars.jitter_right = ui_get(Antiaim[6].jitter_right)
+            vars.fake_limit_left = ui_get(Antiaim[6].fake_limit_left)
+            vars.fake_limit_right = ui_get(Antiaim[6].fake_limit_right)
+            ui.set(references.body_yaw[2], 5)
+        end
 	end
 	
 end
@@ -1198,14 +1334,12 @@ local function jitter()
     antiaim_logic()
     local pulse_m = math.sin(math.abs((math.pi * -1) + (globals.curtime() * (1 / 0.35)) % (math.pi * 2))) * 60
     if pulse_m > 59 then pulse_m = 0 end
-    ui.set(ref.aa.fyaw_limit, 60)
     if globals_realtime() >= TIME then
         --ui.set(references.yaw[2], antiaim_yaw_jitter(15,-25))
         ui.set(ref.aa.jitter[1], "Center")
         ui.set(ref.aa.pitch, "Minimal")
         ui.set(ref.aa.yaw[1], "180")
         ui.set(references.body_yaw[1], "Jitter")
-        ui.set(ref.aa.jitter[2], jitter_set)
         ui.set(references.body_yaw[2], 0)
         ui.set(ref.aa.freestanding_body_yaw, false)
         TIME = globals_realtime() + 0.09
@@ -1213,40 +1347,53 @@ local function jitter()
 end
 
 local Jittering = false
-client.set_event_callback('setup_command', function(cmd)
+local Legit_AA = false
+local function antiaim_handler(cmd)
     Jittering = false
-    detection()
-
-    if contains(ui.get(Exploit_mode_combobox), "Lower body yaw") then
-        lean_lby(cmd, 1)
-    else
-        lean_lby(cmd, 0)
+    detection(cmd)
+    local is_enable = contains(ui.get(misc_combobox), "Legit Anti-aim on use")
+    local on_e = client.key_state(0x45)
+    local status = freestanding()
+    local is_legtaa = (on_e and status ~= "none" and is_enable)
+    Legit_AA = is_legtaa
+    local bodyyaw_legit = (status == "left" and -180) or (status == "right" and 180) or 0
+    if is_legtaa then
+        ui.set(ref.aa.yaw[1], "Off")
+        ui.set(references.body_yaw[1], "Static")
+        ui.set(references.body_yaw[2], bodyyaw_legit)
+        ui.set(references.jitter[2], 0)
     end
 
-    if contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
+    if contains(ui.get(Exploit_mode_combobox), "Fake Yaw") and not is_legtaa then
         if is_rolling == true or fake_angle == true then
             static()
             print()
             Jittering = false
             else if is_rolling == false or fake_angle == false and not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
                 Jittering = true
-                jitter ()
-                ui.set(ref.aa.yaw[2], antiaim_yaw_jitter(yaw_left,yaw_right))
+                jitter()
+                if cmd.chokedcommands ~= 0 then return end
+
+                
+                ui.set(ref.aa.yaw[2], antiaim_yaw_jitter(vars.yaw_left,vars.yaw_right))
+                ui.set(ref.aa.fyaw_limit, antiaim_yaw_jitter(vars.fake_limit_left,vars.fake_limit_right))
+                ui.set(ref.aa.jitter[2], antiaim_yaw_jitter(vars.jitter_left,vars.jitter_right))
             end
         end
     end
-end)
+end
 
 
 local fakelag_settings = ui.new_slider("AA", "Fake lag", "Limit", 1, 16, 15, true, "")
 local function fakelag_adapter()
-    local is_expoliting = ((ui.get(onshotkey) or ui.get(references.doubletap[2])))
+    local is_onshot = ((ui.get(onshotkey) --[[or ui.get(references.doubletap[2])]]    ))
     local is_valve_server = contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass")
-    local real_fakelag = (is_expoliting and not ui.get(references.fakeduck[1]) and 1) or (is_valve_server and 6) or (ui.get(fakelag_settings))
+    local real_fakelag = (is_onshot and not ui.get(references.fakeduck[1]) and 1) or (is_valve_server and 6) or (ui.get(fakelag_settings))
 
     ui.set(references.fake_lag_limit , real_fakelag)
 end
-client.set_event_callback('setup_command', fakelag_adapter)
+
+
 -------------------------Logging-----------------------------
 
 local function KaysFunction(A,B,C)
@@ -1297,7 +1444,6 @@ local function on_bullet_impact(e)
 	end
 end
 
-client.set_event_callback('bullet_impact', on_bullet_impact)
 --------------Animation
 local ani = {
     alpha = 0,
@@ -1332,229 +1478,226 @@ return start + (vend - start) * time end
 
 -------------Indicators
 
+local function Indicator()
 
-client.set_event_callback(
-    "paint",
-    function(e)
+    local ss = {client.screen_size()}
+    local center_x, center_y = ss[1] / 2, ss[2] / 2
 
-        local ss = {client.screen_size()}
-        local center_x, center_y = ss[1] / 2, ss[2] / 2
+    if contains(ui.get(misc_combobox), "Debug Tools") then
+        local overlap_out = math.floor(100 *anti_aim.get_overlap(rotation))
 
-        if contains(ui.get(misc_combobox), "Debug Tools") then
-            local overlap_out = math.floor(100 *anti_aim.get_overlap(rotation))
-
-            local r5 = 255
-            local g5 = 255
-            local b5 = 255
-            if overlap_out > 90 then
-                r5 = 188
-                g5 = 150
-                b5 = 150
-                else if overlap_out < 30 then
-                r5 = 0
-                g5 = 180
-                b5 = 0
-                end
+        local r5 = 255
+        local g5 = 255
+        local b5 = 255
+        if overlap_out > 90 then
+            r5 = 188
+            g5 = 150
+            b5 = 150
+            else if overlap_out < 30 then
+            r5 = 0
+            g5 = 180
+            b5 = 0
             end
-
-            renderer.text(center_x + 50, center_y + 15, r5, g5, b5, 255, " ", nil, "antiaim state:"..preset_state)
-            renderer.text(center_x + 50, center_y + 35, r5, g5, b5, 255, " ", nil, "("..overlap_out.."%)")
-            renderer.text(center_x + 50, center_y + 45, r5, g5, b5, 255, " ", nil, "Roll:")
-            renderer.text(center_x + 73, center_y + 45, r5, g5, b5, 255, " ", nil, is_rolling)
-            renderer.text(center_x + 50, center_y + 55, r5, g5, b5, 255, " ", nil, "Fake Angle:")
-            renderer.text(center_x + 107, center_y + 55, r5, g5, b5, 255, " ", nil, fake_angle)
-            renderer.text(center_x + 50, center_y + 65, r5, g5, b5, 255, " ", nil, "Fake Yaw:")
-            renderer.text(center_x + 99, center_y + 65, r5, g5, b5, 255, " ", nil, Jittering)
         end
 
-            local local_player = entity_get_local_player( )
+        renderer.text(center_x + 50, center_y + 15, r5, g5, b5, 255, " ", nil, "antiaim state:"..vars.preset_state)
+        renderer.text(center_x + 50, center_y + 35, r5, g5, b5, 255, " ", nil, "("..overlap_out.."%)")
+        renderer.text(center_x + 50, center_y + 45, r5, g5, b5, 255, " ", nil, "Roll:")
+        renderer.text(center_x + 73, center_y + 45, r5, g5, b5, 255, " ", nil, is_rolling)
+        renderer.text(center_x + 50, center_y + 55, r5, g5, b5, 255, " ", nil, "Fake Angle:")
+        renderer.text(center_x + 107, center_y + 55, r5, g5, b5, 255, " ", nil, fake_angle)
+        renderer.text(center_x + 50, center_y + 65, r5, g5, b5, 255, " ", nil, "Fake Yaw:")
+        renderer.text(center_x + 99, center_y + 65, r5, g5, b5, 255, " ", nil, Jittering)
+    end
+
+        local local_player = entity_get_local_player( )
     if ( not entity_is_alive( local_player ) ) then
         return     
     end
-        local _, head_rot = entity.get_prop(entity.get_local_player(), "m_angAbsRotation");local _, fake_rot = entity.get_prop(entity.get_local_player(), "m_angEyeAngles");local lby_rot = entity.get_prop(entity.get_local_player(), "m_flLowerBodyYawTarget");local _, cam_rot = client.camera_angles()
-        local c3d = { degrees=50, start_at=head_rot, start_at2=fake_rot, start_at3=lby_rot }
-        local lp_pos = vector(entity.get_origin(entity.get_local_player()))
-        speed = velocity()
-        if velocity() > 30 and velocity() < 250  then
-            ani.alpha = lerp(ani.alpha,255,globals.frametime() * 6)
-            ani.offset = lerp(ani.offset,7,globals.frametime() * 6)
-            ani.speed_offset = lerp(ani.speed_offset, speed, globals.frametime() * 6 )
-            else if velocity() < 30 then
-                ani.alpha = lerp(ani.alpha,0,globals.frametime() * 6)
-                ani.offset = lerp(ani.offset,0,globals.frametime() * 6)
-                ani.speed_offset = lerp(ani.speed_offset, 0, globals.frametime() * 6 )
-                else if ani.speed_offset > 250 then
-                    ani.speed_offset = 250
-                else 
-                    ani.offset = 7
-                    ani.alpha = 255
+    local _, head_rot = entity.get_prop(entity.get_local_player(), "m_angAbsRotation");local _, fake_rot = entity.get_prop(entity.get_local_player(), "m_angEyeAngles");local lby_rot = entity.get_prop(entity.get_local_player(), "m_flLowerBodyYawTarget");local _, cam_rot = client.camera_angles()
+    local c3d = { degrees=50, start_at=head_rot, start_at2=fake_rot, start_at3=lby_rot }
+    local lp_pos = vector(entity.get_origin(entity.get_local_player()))
+    speed = velocity()
+    if velocity() > 30 and velocity() < 250  then
+        ani.alpha = lerp(ani.alpha,255,globals.frametime() * 6)
+        ani.offset = lerp(ani.offset,7,globals.frametime() * 6)
+        ani.speed_offset = lerp(ani.speed_offset, speed, globals.frametime() * 6 )
+        else if velocity() < 30 then
+            ani.alpha = lerp(ani.alpha,0,globals.frametime() * 6)
+            ani.offset = lerp(ani.offset,0,globals.frametime() * 6)
+            ani.speed_offset = lerp(ani.speed_offset, 0, globals.frametime() * 6 )
+            else if ani.speed_offset > 250 then
+                ani.speed_offset = 250
+            else 
+                ani.offset = 7
+                ani.alpha = 255
+            end
+        end
+    end
+
+    if inair() then
+        speed_text = "AIR+"
+        else if velocity() <= 250 then
+            speed_text = math.floor(velocity())
+        end
+    end
+
+    if fake_angle == true then
+        ani.alpha_fakeangle = lerp(ani.alpha,255,globals.frametime() * 6)
+    else
+        ani.alpha_fakeangle = lerp(ani.alpha,0,globals.frametime() * 6)
+    end
+    local tp_check = ui.get(b.teleport_key) and 100 or 6
+    if ui.get(references.doubletap[2]) then
+        ani.dt = math.floor(lerp(ani.dt,255,globals.frametime() * 6))
+        ani.dt_offset = (lerp(ani.dt_offset,255,globals.frametime() * tp_check))
+        ani.dt_offset_exp = (lerp(ani.dt_offset_exp,255,globals.frametime() * 6))
+    else
+        ani.dt = (lerp(ani.dt,0,globals.frametime() * 8))
+        ani.dt_offset = (lerp(ani.dt_offset, 0,globals.frametime() * 1))
+        ani.dt_offset_exp = (lerp(ani.dt_offset_exp,0,globals.frametime() * 6))
+    end
+
+    if ani.dt_offset > 230 then ani.dt_offset = 230 end
+    if ani.dt_offset_exp > 230 then ani.dt_offset_exp = 230 end
+
+    if ui.get(onshotkey) then
+        ani.hide = (lerp(ani.hide,255,globals.frametime() * 6))
+        ani.hide_offset = (lerp(ani.hide_offset,255,globals.frametime() * 6))
+        ani.hide_offset_exp = (lerp(ani.hide_offset_exp,268,globals.frametime() * 6))
+    else
+        ani.hide = math.floor(lerp(ani.hide,0,globals.frametime() * 6))
+        ani.hide_offset = (lerp(ani.hide_offset,0,globals.frametime() * 3.5))
+        ani.hide_offset_exp = (lerp(ani.hide_offset_exp,0,globals.frametime() * 3.5))
+    end
+
+    if ani.hide_offset > 230 then ani.dt_offset = 230 end
+    if ani.hide_offset_exp > 230 then ani.hide_offset_exp = 230 end
+
+    if ui.get(references.fba_key) then
+        ani.baim = math.floor(lerp(ani.baim,255,globals.frametime() * 6))
+        ani.baim_offset = (lerp(ani.baim,255,globals.frametime() * 6))
+        ani.baim_offset_exp = (lerp(ani.baim,262,globals.frametime() * 6))
+    else
+        ani.baim = math.floor(lerp(ani.baim,0,globals.frametime() * 6))
+        ani.baim_offset = (lerp(ani.baim,255,globals.frametime() * 3.5))
+        ani.baim_offset_exp = (lerp(ani.baim,0,globals.frametime() * 6))
+    end
+
+    if ani.baim_offset > 230 then ani.baim_offset = 230 end
+    if ani.baim_offset_exp > 230 then ani.baim_offset_exp  = 230 end
+
+    if ui.get(references.fsp_key) then
+        ani.safe = math.floor(lerp(ani.safe,255,globals.frametime() * 6))
+        ani.safe_offset = (lerp(ani.safe_offset,255,globals.frametime() * 6))
+    else
+        ani.safe = math.floor(lerp(ani.safe,0,globals.frametime() * 6))
+        ani.safe_offset = (lerp(ani.safe_offset,0,globals.frametime() * 6))
+    end
+
+    if ani.safe_offset > 230 then ani.safe_offset = 230 end
+
+    if anti_aim.get_double_tap() then
+        ani.charged = math.floor(lerp(ani.charged,255,globals.frametime() * 6))
+    else
+        ani.charged = math.floor(lerp(ani.charged,0,globals.frametime() * 6))
+    end
+    local local_player = entity.get_local_player()
+
+
+
+    local cool = math.floor(ani.third)
+
+    local ss = {client.screen_size()}
+    local center_x, center_y = ss[1] / 2 + cool, ss[2] / 2 + ani.third1
+
+    if contains(ui.get(b.indicators), "Status Netgraph") then
+        local pulse = math.sin(math.abs((math.pi * -1) + (globals.curtime() * (1 / 0.35)) % (math.pi * 2))) * 255
+        local r, g, b = 30, 255, 109
+        local recovery = stamina()
+
+
+        if recovery <= stamina_bind() then
+            if ui.get(key3) then
+                r2, g2, b2 = 250, 140, 53
+            else
+                r2, g2, b2 = 255, 119, 119
+            end
+        end
+
+        if recovery >= stamina_bind() then
+            if ui.get(key3) then
+                r2, g2, b2 = 250, 140, 53
+            else
+                r2, g2, b2 = 30, 255, 109
+            end
+        end
+
+        local r4 = 124 * 2 - 124 * on_hit()
+        local g4 = 255 * on_hit()
+        local b4 = 13
+
+        local rr, gr, br = 255, 255, 255
+        if is_rolling == true then
+            rr, gr, br = 253, 162, 180
+            else if fake_angle == true then
+                rr, gr, br = 64, 224, 208
+                else if Jittering == true then
+                    rr, gr, br = 184, 187, 255
+                    else if Jittering == false and fake_angle == false and is_rolling == false then
+                        rr, gr, br = 255, 255, 255
+                    end
                 end
             end
         end
 
-        if inair() then
-            speed_text = "AIR+"
-            else if velocity() <= 250 then
-                speed_text = math.floor(velocity())
-            end
-        end
+        local header = gradient_text(255, 255, 255, 255, r4, g4, b4, 255, (ui.get(tag.enabled) and ui.get(tag.name)) or "MLC.YAW")
         
-        if fake_angle == true then
-            ani.alpha_fakeangle = lerp(ani.alpha,255,globals.frametime() * 6)
+        renderer.text(center_x, center_y + 35, 255, 255, 255, 255, "-", nil, header)
+        m_render_engine.render_container(center_x + 2, center_y + 46, ani.speed_offset / 6, 5, rr, gr, br, ani.alpha)
+        renderer.text(center_x + ani.speed_offset / 6 + 2, center_y + 43, rr, gr, br, ani.alpha, "-", nil, speed_text)
+
+        local state = gradient_text(253, 162, 180, 255, 64, 224, 208, 255, "FAKE ANGLE +")
+        local fake_yaw = gradient_text(184, 187, 230, 255, 184, 187, 230, 255, status)
+
+        if status == "FAKE YAW +" then
+            fake_yaw = gradient_text(184, 187, 230, 255, 253, 162, 180, 255, status)
         else
-            ani.alpha_fakeangle = lerp(ani.alpha,0,globals.frametime() * 6)
-        end
-        local tp_check = ui.get(b.teleport_key) and 100 or 6
-        if ui.get(references.doubletap[2]) then
-            ani.dt = math.floor(lerp(ani.dt,255,globals.frametime() * 6))
-            ani.dt_offset = (lerp(ani.dt_offset,255,globals.frametime() * tp_check))
-            ani.dt_offset_exp = (lerp(ani.dt_offset_exp,255,globals.frametime() * 6))
-        else
-            ani.dt = (lerp(ani.dt,0,globals.frametime() * 8))
-            ani.dt_offset = (lerp(ani.dt_offset, 0,globals.frametime() * 1))
-            ani.dt_offset_exp = (lerp(ani.dt_offset_exp,0,globals.frametime() * 6))
+            fake_yaw = gradient_text(184, 187, 230, 255, 184, 187, 230, 255, status)
         end
 
-        if ani.dt_offset > 230 then ani.dt_offset = 230 end
-        if ani.dt_offset_exp > 230 then ani.dt_offset_exp = 230 end
-
-        if ui.get(onshotkey) then
-            ani.hide = (lerp(ani.hide,255,globals.frametime() * 6))
-            ani.hide_offset = (lerp(ani.hide_offset,255,globals.frametime() * 6))
-            ani.hide_offset_exp = (lerp(ani.hide_offset_exp,268,globals.frametime() * 6))
-        else
-            ani.hide = math.floor(lerp(ani.hide,0,globals.frametime() * 6))
-            ani.hide_offset = (lerp(ani.hide_offset,0,globals.frametime() * 3.5))
-            ani.hide_offset_exp = (lerp(ani.hide_offset_exp,0,globals.frametime() * 3.5))
-        end
-
-        if ani.hide_offset > 230 then ani.dt_offset = 230 end
-        if ani.hide_offset_exp > 230 then ani.hide_offset_exp = 230 end
-
-        if ui.get(references.fba_key) then
-            ani.baim = math.floor(lerp(ani.baim,255,globals.frametime() * 6))
-            ani.baim_offset = (lerp(ani.baim,255,globals.frametime() * 6))
-            ani.baim_offset_exp = (lerp(ani.baim,262,globals.frametime() * 6))
-        else
-            ani.baim = math.floor(lerp(ani.baim,0,globals.frametime() * 6))
-            ani.baim_offset = (lerp(ani.baim,255,globals.frametime() * 3.5))
-            ani.baim_offset_exp = (lerp(ani.baim,0,globals.frametime() * 6))
-        end
-    
-        if ani.baim_offset > 230 then ani.baim_offset = 230 end
-        if ani.baim_offset_exp > 230 then ani.baim_offset_exp  = 230 end
-
-        if ui.get(references.fsp_key) then
-            ani.safe = math.floor(lerp(ani.safe,255,globals.frametime() * 6))
-            ani.safe_offset = (lerp(ani.safe_offset,255,globals.frametime() * 6))
-        else
-            ani.safe = math.floor(lerp(ani.safe,0,globals.frametime() * 6))
-            ani.safe_offset = (lerp(ani.safe_offset,0,globals.frametime() * 6))
-        end
-
-        if ani.safe_offset > 230 then ani.safe_offset = 230 end
-
-        if anti_aim.get_double_tap() then
-            ani.charged = math.floor(lerp(ani.charged,255,globals.frametime() * 6))
-        else
-            ani.charged = math.floor(lerp(ani.charged,0,globals.frametime() * 6))
-        end
-        local local_player = entity.get_local_player()
-
-        
-
-        local cool = math.floor(ani.third)
-
-        local ss = {client.screen_size()}
-        local center_x, center_y = ss[1] / 2 + cool, ss[2] / 2 + ani.third1
-
-        if contains(ui.get(b.indicators), "Status Netgraph") then
-            local pulse = math.sin(math.abs((math.pi * -1) + (globals.curtime() * (1 / 0.35)) % (math.pi * 2))) * 255
-            local r, g, b = 30, 255, 109
-            local recovery = stamina()
-
-
-            if recovery <= stamina_bind() then
-                if ui.get(key3) then
-                    r2, g2, b2 = 250, 140, 53
-                else
-                    r2, g2, b2 = 255, 119, 119
-                end
-            end
-
-            if recovery >= stamina_bind() then
-                if ui.get(key3) then
-                    r2, g2, b2 = 250, 140, 53
-                else
-                    r2, g2, b2 = 30, 255, 109
-                end
-            end
-
-            local r4 = 124 * 2 - 124 * on_hit()
-            local g4 = 255 * on_hit()
-            local b4 = 13
-
-            local rr, gr, br = 255, 255, 255
-            if is_rolling == true then
-                rr, gr, br = 253, 162, 180
-                else if fake_angle == true then
-                    rr, gr, br = 64, 224, 208
+        if fake_angle == true and is_rolling == true then
+            renderer.text(center_x, center_y + 43 + ani.offset, 253, 162, 180, 255, "-", nil, state)
+            else if fake_angle == true  then
+                renderer.text(center_x, center_y + 43 + ani.offset, 64, 224, 208, 255, "-", nil, "FAKE ANGLE")
+                else if  is_rolling == true then
+                    renderer.text(center_x, center_y + 43 + ani.offset, 253, 162, 180, 255, "-", nil, detections)
                     else if Jittering == true then
-                        rr, gr, br = 184, 187, 255
+                        renderer.text(center_x, center_y + 43 + ani.offset, 184, 187, 230, 255, "-", nil, fake_yaw)
                         else if Jittering == false and fake_angle == false and is_rolling == false then
-                            rr, gr, br = 255, 255, 255
+                            renderer.text(center_x, center_y + 43 + ani.offset, 255, 255, 255, 255, "-", nil, (Legit_AA and "LEGIT AA") or "WAITING...")
                         end
                     end
                 end
             end
+        end
+        draw_circle_3d(lp_pos.x, lp_pos.y, lp_pos.z, 43+2*1, c3d.degrees, c3d.start_at2, rr, gr, br, 255)
+        
+        local length_def = renderer.measure_text("-", (ui.get(tag.enabled) and ui.get(tag.name)) or "MLC.YAW") + 1
+        if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then
+            renderer.text(center_x + length_def, center_y + 35, 255, 255, 0, pulse, "-", nil, (length_def < 1 and "") or "+")
+        else
 
-            local header = gradient_text(255, 255, 255, 255, r4, g4, b4, 255, (ui.get(tag.enabled) and ui.get(tag.name)) or "MLC.YAW")
-            
-            renderer.text(center_x, center_y + 35, 255, 255, 255, 255, "-", nil, header)
-            m_render_engine.render_container(center_x + 2, center_y + 46, ani.speed_offset / 6, 5, rr, gr, br, ani.alpha)
-            renderer.text(center_x + ani.speed_offset / 6 + 2, center_y + 43, rr, gr, br, ani.alpha, "-", nil, speed_text)
-
-            local state = gradient_text(253, 162, 180, 255, 64, 224, 208, 255, "FAKE ANGLE +")
-            local fake_yaw = gradient_text(184, 187, 230, 255, 184, 187, 230, 255, status)
-
-            if status == "FAKE YAW +" then
-                fake_yaw = gradient_text(184, 187, 230, 255, 253, 162, 180, 255, status)
-            else
-                fake_yaw = gradient_text(184, 187, 230, 255, 184, 187, 230, 255, status)
-            end
-            if fake_angle == true and is_rolling == true then
-                renderer.text(center_x, center_y + 43 + ani.offset, 253, 162, 180, 255, "-", nil, state)
-                else if fake_angle == true  then
-                    renderer.text(center_x, center_y + 43 + ani.offset, 64, 224, 208, 255, "-", nil, "FAKE ANGLE")
-                    else if  is_rolling == true then
-                        renderer.text(center_x, center_y + 43 + ani.offset, 253, 162, 180, 255, "-", nil, detections)
-                        else if Jittering == true then
-                            renderer.text(center_x, center_y + 43 + ani.offset, 184, 187, 230, 255, "-", nil, fake_yaw)
-                            else if Jittering == false and fake_angle == false and is_rolling == false then
-                                renderer.text(center_x, center_y + 43 + ani.offset, 255, 255, 255, 255, "-", nil, "WAITING...")
-                            end
-                        end
-                    end
-                end
-            end
-            draw_circle_3d(lp_pos.x, lp_pos.y, lp_pos.z, 43+2*1, c3d.degrees, c3d.start_at2, rr, gr, br, 255)
-            
-            local length_def = renderer.measure_text("-", (ui.get(tag.enabled) and ui.get(tag.name)) or "MLC.YAW") + 1
-            if contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then
-                renderer.text(center_x + length_def, center_y + 35, 255, 255, 0, pulse, "-", nil, (length_def < 1 and "") or "+")
-            else
-
-            end
-            local first_exp = ani.dt_offset_exp / 22
-            local second_exp = first_exp + ani.hide_offset_exp / 12
-            local third_exp = second_exp + ani.baim_offset_exp / 12
-            renderer.text(center_x + 30 - ani.dt_offset / 7.67, center_y + 50 + ani.offset, 255 - ani.charged, 255, 255 - ani.charged, ani.dt, "-",nil, "DT")
-            renderer.text(center_x + 34 - ani.hide_offset / 7.67 + first_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.hide, "-",nil, "HIDE")
-            renderer.text(center_x + 31 - ani.baim_offset / 7.67 + second_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.baim, "-",nil, "BAIM")
-            renderer.text(center_x + 32 - ani.safe_offset / 7.67 + third_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.safe, "-",nil, "SP")
+        end
+        local first_exp = ani.dt_offset_exp / 22
+        local second_exp = first_exp + ani.hide_offset_exp / 12
+        local third_exp = second_exp + ani.baim_offset_exp / 12
+        renderer.text(center_x + 30 - ani.dt_offset / 7.67, center_y + 50 + ani.offset, 255 - ani.charged, 255, 255 - ani.charged, ani.dt, "-",nil, "DT")
+        renderer.text(center_x + 34 - ani.hide_offset / 7.67 + first_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.hide, "-",nil, "HIDE")
+        renderer.text(center_x + 31 - ani.baim_offset / 7.67 + second_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.baim, "-",nil, "BAIM")
+        renderer.text(center_x + 32 - ani.safe_offset / 7.67 + third_exp, center_y + 50 + ani.offset, 255, 255, 255, ani.safe, "-",nil, "SP")
     end
 end
-)
 
 
 
@@ -1582,22 +1725,22 @@ end
 
 --------------------------------MANUAL ANTI AIM
 --#region new controls
-local enabled = ui.new_checkbox("AA", "Other", "Enable manual anti-aim")
-local indicator_color = ui.new_color_picker("AA", "Other", "enable_manual_anti_aim", 130, 156, 212, 255)
-local left_dir = ui.new_hotkey("AA", "Other", "Left direction")
-local right_dir = ui.new_hotkey("AA", "Other", "Right direction")
-local back_dir = ui.new_hotkey("AA", "Other", "Backwards direction")
-local indicator_dist = ui.new_slider("AA", "Other", "Distance between arrows", 1, 100, 15, true, "px")
-local manual_inactive_color = ui.new_color_picker("AA", "Other", "manual_inactive_color", 130, 156, 212, 255)
-local manual_state = ui.new_slider("AA", "Other", "Manual direction", 0, 3, 0)
+
 --#endregion /new controls
 --#region references
-local yaw_base = ui.reference("AA", "Anti-aimbot angles", "Yaw base")
-local yaw = { ui.reference("AA", "Anti-aimbot angles", "Yaw") }
-local bodyyaw = { ui.reference("AA", "Anti-aimbot angles", "Body yaw") }
---#endregion references
---#region helpers
 
+local manual = {
+
+     enabled = ui.new_checkbox("AA", "Other", "Enable manual anti-aim"),
+     indicator_color = ui.new_color_picker("AA", "Other", "enable_manual_anti_aim", 130, 156, 212, 255),
+     left_dir = ui.new_hotkey("AA", "Other", "Left direction"),
+     right_dir = ui.new_hotkey("AA", "Other", "Right direction"),
+     back_dir = ui.new_hotkey("AA", "Other", "Backwards direction"),
+     indicator_dist = ui.new_slider("AA", "Other", "Distance between arrows", 1, 100, 15, true, "px"),
+     manual_inactive_color = ui.new_color_picker("AA", "Other", "manual_inactive_color", 130, 156, 212, 255),
+     manual_state = ui.new_slider("AA", "Other", "Manual direction", 0, 3, 0),
+
+}
 local multi_exec = function(func, list)
     if func == nil then
         return
@@ -1617,16 +1760,16 @@ local bind_system = {
 }
 
 function bind_system:update()
-    ui.set(left_dir, "On hotkey")
-    ui.set(right_dir, "On hotkey")
-    ui.set(back_dir, "On hotkey")
+    ui.set(manual.left_dir, "On hotkey")
+    ui.set(manual.right_dir, "On hotkey")
+    ui.set(manual.back_dir, "On hotkey")
 
-    local m_state = ui.get(manual_state)
+    local m_state = ui.get(manual.manual_state)
 
     local left_state, right_state, backward_state = 
-        ui.get(left_dir), 
-        ui.get(right_dir),
-        ui.get(back_dir)
+        ui.get(manual.left_dir), 
+        ui.get(manual.right_dir),
+        ui.get(manual.back_dir)
 
     if  left_state == self.left and 
         right_state == self.right and
@@ -1640,43 +1783,42 @@ function bind_system:update()
         backward_state
 
     if (left_state and m_state == 1) or (right_state and m_state == 2) or (backward_state and m_state == 3) then
-        ui.set(manual_state, 0)
+        ui.set(manual.manual_state, 0)
         return
     end
 
     if left_state and m_state ~= 1 then
-        ui.set(manual_state, 1)
+        ui.set(manual.manual_state, 1)
     end
 
     if right_state and m_state ~= 2 then
-        ui.set(manual_state, 2)
+        ui.set(manual.manual_state, 2)
     end
 
     if backward_state and m_state ~= 3 then
-        ui.set(manual_state, 3)
+        ui.set(manual.manual_state, 3)
     end
 end
 
 local menu_callback = function(e, menu_call)
-    local state = not ui.get(enabled) -- or (e == nil and menu_call == nil)
+    local state = not ui.get(manual.enabled) -- or (e == nil and menu_call == nil)
     multi_exec(ui.set_visible, {
-        [indicator_color] = not state,
-        [manual_inactive_color] = not state,
-        [indicator_dist] = not state ,
-        [left_dir] = not state,
-        [right_dir] = not state,
-        [back_dir] = not state,
-        [manual_state] = false,
+        [manual.indicator_color] = not state,
+        [manual.manual_inactive_color] = not state,
+        [manual.indicator_dist] = not state ,
+        [manual.left_dir] = not state,
+        [manual.right_dir] = not state,
+        [manual.back_dir] = not state,
+        [manual.manual_state] = false,
     })
 end
 
-ui.set_callback(enabled, menu_callback)
-client.set_event_callback("setup_command", function(e)
-    if not ui.get(enabled) then
+local function manual_antiaim()
+    if not ui.get(manual.enabled) then
         return
     end
 
-    local direction = ui.get(manual_state)
+    local direction = ui.get(manual.manual_state)
 
     local manual_yaw = {
         [0] = 0,
@@ -1685,68 +1827,271 @@ client.set_event_callback("setup_command", function(e)
     }
 
     if direction == 1 or direction == 2 then
-        ui.set(yaw_base, "Local view")
+        ui.set(references.yaw_base, "Local view")
     else
-        ui.set(yaw_base, "At targets")
+        ui.set(references.yaw_base, "At targets")
     end
     if direction == 1 then
-        ui.set(bodyyaw[2], 180)
+        ui.set(references.body_yaw[2], 180)
         ui.set(slider_roll, -(ui.get(slider_adjust)))
     else
     end
 
     if direction == 2 then
-        ui.set(bodyyaw[2], -180)
+        ui.set(references.body_yaw[2], -180)
         ui.set(slider_roll, ui.get(slider_adjust))
     else
     end
     if manual_yaw[direction] == 0 then return end
-    ui.set(yaw[2], manual_yaw[direction])
-end)
+    ui.set(references.yaw[2], manual_yaw[direction])
+end
 
-client.set_event_callback("paint", function()
+
+local indicator_left = ">"
+local indicator_right = "<"
+
+local font_grabber = {
+
+    Run = function()
+
+        local asd_http_ouo = require "gamesense/http"
+
+        str_to_sub = function(input, sep)
+            local t = {}
+            for str in  string.gmatch(input, "([^"..sep.."]+)") do
+                t[#t + 1] = string.gsub(str, "\n", "")
+            end
+            return t
+        end
+        
+        local http_get = function()
+
+            asd_http_ouo.get("https://raw.githubusercontent.com/MLCluanchar/Special-font/main/font.txt", function(success, response)
+                if not success or response.status ~= 200 then
+                    log("Conection failed")
+                end
+            
+                local tbl = str_to_sub(response.body, '"')
+            
+                indicator_right = tbl[2]
+                indicator_left = tbl[4]
+            
+            end)
+
+        end
+        http_get()
+    end
+
+}
+
+font_grabber.Run()
+
+local function manual_indicator()
     menu_callback(true, true)
     bind_system:update()
     
     local me = entity.get_local_player()
     
-    if not entity.is_alive(me) or not ui.get(enabled) then
+    if not entity.is_alive(me) or not ui.get(manual.enabled) then
         return
     end
 
-    if ui.get(enabled) then
+    if ui.get(manual.enabled) then
         local w, h = client.screen_size()
-        local r, g, b, a = ui.get(indicator_color)
-        local r1, g1, b1, a1 = ui.get(manual_inactive_color)
-        local m_state = ui.get(manual_state)
+        local r, g, b, a = ui.get(manual.indicator_color)
+        local r1, g1, b1, a1 = ui.get(manual.manual_inactive_color)
+        local m_state = ui.get(manual.manual_state)
     
         local realtime = globals.realtime() % 3
-        local distance = (w/2) / 210 * ui.get(indicator_dist)
+        local distance = (w/2) / 210 * ui.get(manual.indicator_dist)
         local alpha = math.floor(math.sin(realtime * 4) * (a/2-1) + a/2) or a
         -- ⯇ ⯈ ⯅ ⯆
         
         if m_state == 1 then
             ani.manual_lef = lerp(ani.manual_lef,40,globals.frametime() * 6)
-            renderer.text(w/2 - distance - ani.manual_lef, h / 2 - 1,  r, g, b, ani.manual_lef * 4 + 90, "+c", 0, "❮")
+            renderer.text(w/2 - distance - ani.manual_lef, h / 2 - 1,  r, g, b, ani.manual_lef * 4 + 90, "+c", 0, indicator_left)
             else
             ani.manual_lef = lerp(ani.manual_lef,0,globals.frametime() * 6)
-            renderer.text(w/2 - distance - ani.manual_lef, h / 2 - 1, r, g, b, ani.manual_lef * 4 + 90, "+c", 0, "❮")
+            renderer.text(w/2 - distance - ani.manual_lef, h / 2 - 1, r, g, b, ani.manual_lef * 4 + 90, "+c", 0, indicator_left)
         end        
         if m_state == 2 then 
             ani.manual_right = lerp(ani.manual_right,40,globals.frametime() * 6)
-            renderer.text(w/2 + distance + ani.manual_right, h / 2 - 1, r, g, b, ani.manual_right * 4 + 90, "+c", 0, "❯") 
+            renderer.text(w/2 + distance + ani.manual_right, h / 2 - 1, r, g, b, ani.manual_right * 4 + 90, "+c", 0, indicator_right) 
         else
             ani.manual_right = lerp(ani.manual_right,0,globals.frametime() * 6)
-            renderer.text(w/2 + distance + ani.manual_right, h / 2 - 1, r, g, b, ani.manual_right * 4 + 90, "+c", 0, "❯") 
+            renderer.text(w/2 + distance + ani.manual_right, h / 2 - 1, r, g, b, ani.manual_right * 4 + 90, "+c", 0, indicator_right) 
         end
         if m_state == 3 or m_state == 0 then renderer.text(w/2, h / 2 + distance, r, g, b, a, "+c", 0, "") end
     end
+end
+
+
+local function inuse(e)
+    local weaponn = entity.get_player_weapon()
+    if weaponn ~= nil and entity.get_classname(weaponn) == "CC4" then
+        if e.in_attack == 1 then
+            e.in_attack = 0 
+            e.in_use = 1
+        end
+    else
+        if e.chokedcommands == 0 then
+            e.in_use = 0
+        end
+    end
+end
+
+
+local function lean_lby(cmd, status)
+
+    --something important is minified but i dont want to waste time on deleting to seperate those
+
+    if (entity.get_prop(entity.get_local_player(), "m_MoveType") or 0) == 9 then return end
+
+    local lean_bodyyaw = anti_aim.get_desync(2)
+
+    if lean_bodyyaw == nil then return end
+
+    if contains(ui.get(Exploit_mode_combobox), "LBY Break") then 
+
+        -------------Ignoring nades
+        local local_player = entity_get_local_player()
+        local my_weapon = entity.get_player_weapon(local_player)
+        local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
+        local is_grenade =
+            ({
+            [43] = true,
+            [44] = true,
+            [45] = true,
+            [46] = true,
+            [47] = true,
+            [48] = true,
+            [68] = true
+        })[wepaon_id] or false
+        
+        if is_grenade then
+            if cmd.in_attack == 1 or cmd.in_attack2 == 1 then return end
+        end
+    
+        status = velocity() < 50 and 1 or 0
+    
+        -----------------Ignore grenade end
+        goto ignore end
+    
+        if math.abs(anti_aim.get_desync(2)) < 15 or cmd.chokedcommands == 0 then return end
+    
+        ::ignore::
+
+    if ui.get(references.quick_peek[2]) then return end
+
+    if velocity() > 50 then return end
+
+    print(status)
+    cmd.in_forward = status
+
+
+end
+
+client.set_event_callback("setup_command", function(cmd)
+    if contains(ui.get(Exploit_mode_combobox), "LBY") then
+        lean_lby(cmd, 1)
+    else
+        lean_lby(cmd, 0)
+    end
+
 end)
 
 -----------------Animation
 
-client.set_event_callback("pre_render", function()
+
+local function handle_visible(state)
+    ui.set_visible(slider_roll, false)
+
+    ui.set_visible(Exploit_mode_combobox, state)
+    ui.set_visible(static_mode_combobox, state)
+    ui.set_visible(misc_combobox, state)
+    ui.set_visible(b.indicators, state)
+    ui.set_visible(slider_adjust, state)
+    ui.set_visible(b.checkbox_hitchecker, state)
+    ui.set_visible(b.velocity_slider, state)
+    ui.set_visible(b.stamina_slider, state)
+    ui.set_visible(b.in_air_roll, state)
+    ui.set_visible(b.teleport_key, state)
+    ui.set_visible(tag.enabled, state)
+    ui.set_visible(tag.label, state)
+    ui.set_visible(tag.name, state)
+
+    ui.set_visible(key3, state)
+    ui.set_visible(speed_slider, state)
+
+    ui.set_visible(references.fake_lag_limit, not state)
+    ui.set_visible(fakelag_settings, state)
+
+    ui.set_visible(fake_yaw.enable, state)
+    ui.set_visible(fake_yaw.custom_menu, state)
+    ui.set_visible(fake_yaw.hide_menu, state)
+    ui.set_visible(fake_yaw.config_import, state)
+    ui.set_visible(fake_yaw.config_export, state)
+end
+
+local function setup_command(cmd)
+
+    valve_ds()
+    ladd_State()
+    antiaim_handler(cmd)
+    fakelag_adapter(cmd)
+    manual_antiaim()
+    on_setup_command(cmd)
+    fake_angle_handler(cmd)
+
+    if contains(ui.get(misc_combobox), "Legit Anti-aim on use") then
+        inuse(cmd)
+    end
+end
+
+local function on_paint()
+    Indicator()
+    freestanding()
+    manual_indicator()
+    handle_function_menu()
+end
+
+local function run_command(cmd)
+    roll_angle(cmd)
+end
+
+local function pre_render()
     if contains(ui.get(misc_combobox), "Old Animation") then 
         entity.set_prop(entity.get_local_player(), "m_flPoseParameter", 1, 6) 
     end
- end)
+end
+
+local function shutdown()
+    local is_valve_ds = ffi.cast('bool*', gamerules[0] + 124)
+    if is_valve_spoof == true then 
+        is_valve_ds[0] = 0
+    end
+    ui.set_visible(references.fake_lag_limit, true)
+end
+
+local disable = true
+handle_visible(false)
+menu_callback()
+init_preset()
+handle_function_menu()
+local function initialize()
+    client.set_event_callback("run_command", run_command)
+    client.set_event_callback('bullet_impact', on_bullet_impact)
+    client.set_event_callback("setup_command", setup_command)
+    client.set_event_callback("paint", on_paint)
+    client.set_event_callback("pre_render", pre_render)
+    client.set_event_callback("shutdown", shutdown)
+    client.set_event_callback(manual.enabled, menu_callback)
+    handle_visible(true)
+    disable = false
+end
+
+local initialize_btn = ui.new_button("AA", "Anti-aimbot angles", "Initialize mlc yaw", initialize)
+
+client.set_event_callback("paint_ui", function()
+    ui.set_visible(initialize_btn, disable)
+end)
