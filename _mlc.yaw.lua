@@ -1,19 +1,94 @@
+
 local anti_aim = require 'gamesense/antiaim_funcs'
 
 local ffi = require "ffi"
 local vector = require("vector")
 -- Libraries
 
+local bit_band, bit_lshift, client_color_log, client_create_interface, client_delay_call, client_find_signature, client_key_state, client_reload_active_scripts, client_screen_size, client_set_event_callback, client_system_time, client_timestamp, client_unset_event_callback, database_read, database_write, entity_get_classname, entity_get_local_player, entity_get_origin, entity_get_player_name, entity_get_prop, entity_get_steam64, entity_is_alive, globals_framecount, globals_realtime, math_ceil, math_floor, math_max, math_min, panorama_loadstring, renderer_gradient, renderer_line, renderer_rectangle, table_concat, table_insert, table_remove, table_sort, ui_get, ui_is_menu_open, ui_mouse_position, ui_new_checkbox, ui_new_color_picker, ui_new_combobox, ui_new_slider, ui_set, ui_set_visible, setmetatable, pairs, error, globals_absoluteframetime, globals_curtime, globals_frametime, globals_maxplayers, globals_tickcount, globals_tickinterval, math_abs, type, pcall, renderer_circle_outline, renderer_load_rgba, renderer_measure_text, renderer_text, renderer_texture, tostring, ui_name, ui_new_button, ui_new_hotkey, ui_new_label, ui_new_listbox, ui_new_textbox, ui_reference, ui_set_callback, ui_update, unpack, tonumber = bit.band, bit.lshift, client.color_log, client.create_interface, client.delay_call, client.find_signature, client.key_state, client.reload_active_scripts, client.screen_size, client.set_event_callback, client.system_time, client.timestamp, client.unset_event_callback, database.read, database.write, entity.get_classname, entity.get_local_player, entity.get_origin, entity.get_player_name, entity.get_prop, entity.get_steam64, entity.is_alive, globals.framecount, globals.realtime, math.ceil, math.floor, math.max, math.min, panorama.loadstring, renderer.gradient, renderer.line, renderer.rectangle, table.concat, table.insert, table.remove, table.sort, ui.get, ui.is_menu_open, ui.mouse_position, ui.new_checkbox, ui.new_color_picker, ui.new_combobox, ui.new_slider, ui.set, ui.set_visible, setmetatable, pairs, error, globals.absoluteframetime, globals.curtime, globals.frametime, globals.maxplayers, globals.tickcount, globals.tickinterval, math.abs, type, pcall, renderer.circle_outline, renderer.load_rgba, renderer.measure_text, renderer.text, renderer.texture, tostring, ui.name, ui.new_button, ui.new_hotkey, ui.new_label, ui.new_listbox, ui.new_textbox, ui.reference, ui.set_callback, ui.update, unpack, tonumber
+local entity_get_local_player, entity_is_enemy, entity_get_all, entity_set_prop, entity_is_alive, entity_is_dormant, entity_get_player_name, entity_get_game_rules, entity_get_origin, entity_hitbox_position, entity_get_players, entity_get_prop = entity.get_local_player, entity.is_enemy,  entity.get_all, entity.set_prop, entity.is_alive, entity.is_dormant, entity.get_player_name, entity.get_game_rules, entity.get_origin, entity.hitbox_position, entity.get_players, entity.get_prop
+local math_cos, math_sin, math_rad, math_sqrt = math.cos, math.sin, math.rad, math.sqrt
+local ui_new_multiselect = ui.new_multiselect
 local buttons_e = {
     attack = bit.lshift(1, 0),
     attack_2 = bit.lshift(1, 11),
     use = bit.lshift(1, 5)
 
 }
-local bit_band, bit_lshift, client_color_log, client_create_interface, client_delay_call, client_find_signature, client_key_state, client_reload_active_scripts, client_screen_size, client_set_event_callback, client_system_time, client_timestamp, client_unset_event_callback, database_read, database_write, entity_get_classname, entity_get_local_player, entity_get_origin, entity_get_player_name, entity_get_prop, entity_get_steam64, entity_is_alive, globals_framecount, globals_realtime, math_ceil, math_floor, math_max, math_min, panorama_loadstring, renderer_gradient, renderer_line, renderer_rectangle, table_concat, table_insert, table_remove, table_sort, ui_get, ui_is_menu_open, ui_mouse_position, ui_new_checkbox, ui_new_color_picker, ui_new_combobox, ui_new_slider, ui_set, ui_set_visible, setmetatable, pairs, error, globals_absoluteframetime, globals_curtime, globals_frametime, globals_maxplayers, globals_tickcount, globals_tickinterval, math_abs, type, pcall, renderer_circle_outline, renderer_load_rgba, renderer_measure_text, renderer_text, renderer_texture, tostring, ui_name, ui_new_button, ui_new_hotkey, ui_new_label, ui_new_listbox, ui_new_textbox, ui_reference, ui_set_callback, ui_update, unpack, tonumber = bit.band, bit.lshift, client.color_log, client.create_interface, client.delay_call, client.find_signature, client.key_state, client.reload_active_scripts, client.screen_size, client.set_event_callback, client.system_time, client.timestamp, client.unset_event_callback, database.read, database.write, entity.get_classname, entity.get_local_player, entity.get_origin, entity.get_player_name, entity.get_prop, entity.get_steam64, entity.is_alive, globals.framecount, globals.realtime, math.ceil, math.floor, math.max, math.min, panorama.loadstring, renderer.gradient, renderer.line, renderer.rectangle, table.concat, table.insert, table.remove, table.sort, ui.get, ui.is_menu_open, ui.mouse_position, ui.new_checkbox, ui.new_color_picker, ui.new_combobox, ui.new_slider, ui.set, ui.set_visible, setmetatable, pairs, error, globals.absoluteframetime, globals.curtime, globals.frametime, globals.maxplayers, globals.tickcount, globals.tickinterval, math.abs, type, pcall, renderer.circle_outline, renderer.load_rgba, renderer.measure_text, renderer.text, renderer.texture, tostring, ui.name, ui.new_button, ui.new_hotkey, ui.new_label, ui.new_listbox, ui.new_textbox, ui.reference, ui.set_callback, ui.update, unpack, tonumber
-local entity_get_local_player, entity_is_enemy, entity_get_all, entity_set_prop, entity_is_alive, entity_is_dormant, entity_get_player_name, entity_get_game_rules, entity_get_origin, entity_hitbox_position, entity_get_players, entity_get_prop = entity.get_local_player, entity.is_enemy,  entity.get_all, entity.set_prop, entity.is_alive, entity.is_dormant, entity.get_player_name, entity.get_game_rules, entity.get_origin, entity.hitbox_position, entity.get_players, entity.get_prop
-local math_cos, math_sin, math_rad, math_sqrt = math.cos, math.sin, math.rad, math.sqrt
-local ui_new_multiselect = ui.new_multiselect
+
+---------------------Polygens
+
+local m_render_engine = (function()
+    local renderer_circle = renderer.circle
+	local a = {}
+	local b = function(c, d, e, f, g, h, i, j, k)
+		renderer_rectangle(c + g, d, e - g * 2, g, h, i, j, k)
+		renderer_rectangle(c, d + g, g, f - g * 2, h, i, j, k)
+		renderer_rectangle(c + g, d + f - g, e - g * 2, g, h, i, j, k)
+		renderer_rectangle(c + e - g, d + g, g, f - g * 2, h, i, j, k)
+		renderer_rectangle(c + g, d + g, e - g * 2, f - g * 2, h, i, j, k)
+		renderer_circle(c + g, d + g, h, i, j, k, g, 180, 0.25)
+		renderer_circle(c + e - g, d + g, h, i, j, k, g, 90, 0.25)
+		renderer_circle(c + g, d + f - g, h, i, j, k, g, 270, 0.25)
+		renderer_circle(c + e - g, d + f - g, h, i, j, k, g, 0, 0.25)
+	end;
+	local l = function(c, d, e, f, g, h, i, j, k)
+		renderer_rectangle(c, d + g, 1, f - g * 2 + 2, h, i, j, k)
+		renderer_rectangle(c + e - 1, d + g, 1, f - g * 2 + 1, h, i, j, k)
+		renderer_rectangle(c + g, d, e - g * 2, 1, h, i, j, k)
+		renderer_rectangle(c + g, d + f, e - g * 2, 1, h, i, j, k)
+		renderer_circle_outline(c + g, d + g, h, i, j, k, g, 180, 0.25, 2)
+		renderer_circle_outline(c + e - g, d + g, h, i, j, k, g, 270, 0.25, 2)
+		renderer_circle_outline(c + g, d + f - g + 1, h, i, j, k, g, 90, 0.25, 2)
+		renderer_circle_outline(c + e - g, d + f - g + 1, h, i, j, k, g, 0, 0.25, 2)
+	end;
+	local m = 2;
+	local n = 45;
+	local o = 15;
+	local p = function(c, d, e, f, g, h, i, j, k, q)
+		renderer_rectangle(c + g, d, e - g * 2, 2, h, i, j, k)
+		renderer_circle_outline(c + g, d + g, h, i, j, k, g, 180, 0.25, 2)
+		renderer_circle_outline(c + e - g, d + g, h, i, j, k, g, 270, 0.25, 2)
+		renderer_gradient(c, d + g, 2, f - g * 2, h, i, j, k, h, i, j, n, false)
+		renderer_gradient(c + e - 2, d + g, 2, f - g * 2, h, i, j, k, h, i, j, n, false)
+		renderer_circle_outline(c + g, d + f - g, h, i, j, n + 50, g, 90, 0.25, 2)
+		renderer_circle_outline(c + e - g, d + f - g, h, i, j, n + 50, g, 0, 0.25, 2)
+		renderer_rectangle(c + g, d + f - 2, e - g * 2, 2, h, i, j, n + 50)
+		for r = 1, q do
+			l(c - r, d - r, e + r * 2, f + r * 2, g, h, i, j, q - r)
+		end
+	end;
+	local s, t, u, v = 17, 17, 17, 80;
+	a.render_container = function(c, d, e, f, h, i, j, k, w)
+		renderer.blur(c, d, e, f, 100, 100)
+		b(c, d, e, f, m, s, t, u, v)
+		p(c, d, e, f, m, h, i, j, k, o)
+		if w then
+			w(c + m, d + m, e - m * 2, f - m * 2)
+		end
+	end;
+	a.render_glow_line = function(c, d, x, y, h, i, j, k, z, A, B, q)
+		local C = vector(c, d, 0)
+		local D = vector(x, y, 0)
+		local E = ({
+			C:to(D):angles()
+		})[2]
+		for r = 1, q do
+			renderer_circle_outline(c, d, z, A, B, q - r, r, E + 90, 0.5, 1)
+			renderer_circle_outline(x, y, z, A, B, q - r, r, E - 90, 0.5, 1)
+			local F = vector(math_cos(math_rad(E + 90)), math_sin(math_rad(E + 90)), 0):scaled(r * 0.95)
+			local G = vector(math_cos(math_rad(E - 90)), math_sin(math_rad(E - 90)), 0):scaled(r * 0.95)
+			local H = F + C;
+			local I = F + D;
+			local J = G + C;
+			local K = G + D;
+			renderer_line(H.x, H.y, I.x, I.y, z, A, B, q - r)
+			renderer_line(J.x, J.y, K.x, K.y, z, A, B, q - r)
+		end;
+		renderer_line(c, d, x, y, h, i, j, k)
+	end;
+	return a
+end)()
 local function contains(tbl, val)
     for i = 1, #tbl do
         if tbl[i] == val then
@@ -281,6 +356,11 @@ local Exploit_mode_combobox =
     "Anti-aimbot angles",
     "Enable Exploit",
     "Roll Angle",
+    --[[
+    "LBY",
+    "LBY Break",
+    ]]
+
     "Fake Angle",
     "Fake Yaw",
     "\aB6B665FFValve Server Bypass"
@@ -305,6 +385,7 @@ local misc_combobox =
     "Roll with Fake yaw(air)",
     "Old Animation",
     "Legit Anti-aim on use",
+    "Legit Anti-aim on Backstab",
     "Fast Zeus"
 )
 
@@ -624,81 +705,6 @@ client.set_event_callback("paint", function()
     end
 end)
 
----------------------Polygens
-
-local renderer_circle = renderer.circle
-
-local m_render_engine = (function()
-	local a = {}
-	local b = function(c, d, e, f, g, h, i, j, k)
-		renderer_rectangle(c + g, d, e - g * 2, g, h, i, j, k)
-		renderer_rectangle(c, d + g, g, f - g * 2, h, i, j, k)
-		renderer_rectangle(c + g, d + f - g, e - g * 2, g, h, i, j, k)
-		renderer_rectangle(c + e - g, d + g, g, f - g * 2, h, i, j, k)
-		renderer_rectangle(c + g, d + g, e - g * 2, f - g * 2, h, i, j, k)
-		renderer_circle(c + g, d + g, h, i, j, k, g, 180, 0.25)
-		renderer_circle(c + e - g, d + g, h, i, j, k, g, 90, 0.25)
-		renderer_circle(c + g, d + f - g, h, i, j, k, g, 270, 0.25)
-		renderer_circle(c + e - g, d + f - g, h, i, j, k, g, 0, 0.25)
-	end;
-	local l = function(c, d, e, f, g, h, i, j, k)
-		renderer_rectangle(c, d + g, 1, f - g * 2 + 2, h, i, j, k)
-		renderer_rectangle(c + e - 1, d + g, 1, f - g * 2 + 1, h, i, j, k)
-		renderer_rectangle(c + g, d, e - g * 2, 1, h, i, j, k)
-		renderer_rectangle(c + g, d + f, e - g * 2, 1, h, i, j, k)
-		renderer_circle_outline(c + g, d + g, h, i, j, k, g, 180, 0.25, 2)
-		renderer_circle_outline(c + e - g, d + g, h, i, j, k, g, 270, 0.25, 2)
-		renderer_circle_outline(c + g, d + f - g + 1, h, i, j, k, g, 90, 0.25, 2)
-		renderer_circle_outline(c + e - g, d + f - g + 1, h, i, j, k, g, 0, 0.25, 2)
-	end;
-	local m = 2;
-	local n = 45;
-	local o = 15;
-	local p = function(c, d, e, f, g, h, i, j, k, q)
-		renderer_rectangle(c + g, d, e - g * 2, 2, h, i, j, k)
-		renderer_circle_outline(c + g, d + g, h, i, j, k, g, 180, 0.25, 2)
-		renderer_circle_outline(c + e - g, d + g, h, i, j, k, g, 270, 0.25, 2)
-		renderer_gradient(c, d + g, 2, f - g * 2, h, i, j, k, h, i, j, n, false)
-		renderer_gradient(c + e - 2, d + g, 2, f - g * 2, h, i, j, k, h, i, j, n, false)
-		renderer_circle_outline(c + g, d + f - g, h, i, j, n + 50, g, 90, 0.25, 2)
-		renderer_circle_outline(c + e - g, d + f - g, h, i, j, n + 50, g, 0, 0.25, 2)
-		renderer_rectangle(c + g, d + f - 2, e - g * 2, 2, h, i, j, n + 50)
-		for r = 1, q do
-			l(c - r, d - r, e + r * 2, f + r * 2, g, h, i, j, q - r)
-		end
-	end;
-	local s, t, u, v = 17, 17, 17, 80;
-	a.render_container = function(c, d, e, f, h, i, j, k, w)
-		renderer.blur(c, d, e, f, 100, 100)
-		b(c, d, e, f, m, s, t, u, v)
-		p(c, d, e, f, m, h, i, j, k, o)
-		if w then
-			w(c + m, d + m, e - m * 2, f - m * 2)
-		end
-	end;
-	a.render_glow_line = function(c, d, x, y, h, i, j, k, z, A, B, q)
-		local C = vector(c, d, 0)
-		local D = vector(x, y, 0)
-		local E = ({
-			C:to(D):angles()
-		})[2]
-		for r = 1, q do
-			renderer_circle_outline(c, d, z, A, B, q - r, r, E + 90, 0.5, 1)
-			renderer_circle_outline(x, y, z, A, B, q - r, r, E - 90, 0.5, 1)
-			local F = vector(math_cos(math_rad(E + 90)), math_sin(math_rad(E + 90)), 0):scaled(r * 0.95)
-			local G = vector(math_cos(math_rad(E - 90)), math_sin(math_rad(E - 90)), 0):scaled(r * 0.95)
-			local H = F + C;
-			local I = F + D;
-			local J = G + C;
-			local K = G + D;
-			renderer_line(H.x, H.y, I.x, I.y, z, A, B, q - r)
-			renderer_line(J.x, J.y, K.x, K.y, z, A, B, q - r)
-		end;
-		renderer_line(c, d, x, y, h, i, j, k)
-	end;
-	return a
-end)()
-
 -------------------Teleport function-------------------
 --[[
 local double_tap, double_tap_key = ui.reference('Rage','Other','Double tap')
@@ -760,12 +766,26 @@ function draw_circle_3d(x, y, z, radius, degrees, start_at, r, g, b, a)
 		old.x, old.y = current.x, current.y
 	end
 end
+-------------------------Backstab----------------------
+local function backstab()
+    local enemies = entity.get_players(true)
+    local local_origin = vector(entity.get_origin(entity.get_local_player()))
+    local is_near = false
+    for i = 1, #enemies do
+        local enemy_origin = vector(entity.get_origin(enemies[i]))
+        local distance = local_origin:dist(enemy_origin)
+        local weapon = entity.get_player_weapon(enemies)
+        local class = entity.get_classname(weapon) --we get enemy's weapon here
+        if distance < 128 and class == "CKnife" then return true end
+    end
+    return false
+end
 -------------------------Basic Anti Aim----------------------
 
 function left_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  -7)
-    ui.set(references.body_yaw[2], -80)
+    ui.set(references.body_yaw[2], -180)
     ui.set(slider_roll, -ui.get(slider_adjust))
     ui.set(b.in_air_roll, 50)
     ui.set(references.jitter[2], 0)
@@ -773,7 +793,7 @@ end
 function right_peek()
     ui.set(references.body_yaw[1], "Static")
     ui.set(references.yaw[2],  7)
-    ui.set(references.body_yaw[2], 80)
+    ui.set(references.body_yaw[2], 180)
     ui.set(slider_roll, (ui.get(slider_adjust)))
     ui.set(b.in_air_roll, -50)
     ui.set(references.jitter[2], 0)
@@ -789,111 +809,9 @@ end
 local _V3_MT   = {};
 _V3_MT.__index = _V3_MT;
 
-local function Vector3( x, y, z )
-    -- check args
-    if( type( x ) ~= "number" ) then
-        x = 0.0;
-    end
-
-    if( type( y ) ~= "number" ) then
-        y = 0.0;
-    end
-
-    if( type( z ) ~= "number" ) then
-        z = 0.0;
-    end
-
-    x = x or 0.0;
-    y = y or 0.0;
-    z = z or 0.0;
-
-    return setmetatable(
-        {
-            x = x,
-            y = y,
-            z = z
-        },
-        _V3_MT
-    );
-end
-
-
-function _V3_MT.__sub( a, b ) -- subtract another vector or number
-    local a_type = type( a );
-    local b_type = type( b );
-
-    if( a_type == "table" and b_type == "table" ) then
-        return Vector3(
-            a.x - b.x,
-            a.y - b.y,
-            a.z - b.z
-        );
-    elseif( a_type == "table" and b_type == "number" ) then
-        return Vector3(
-            a.x - b,
-            a.y - b,
-            a.z - b
-        );
-    elseif( a_type == "number" and b_type == "table" ) then
-        return Vector3(
-            a - b.x,
-            a - b.y,
-            a - b.z
-        );
-    end
-end
-
-function _V3_MT:length_sqr() -- squared 3D length
-    return ( self.x * self.x ) + ( self.y * self.y ) + ( self.z * self.z );
-end
-
-function _V3_MT:length() -- 3D length
-    return math_sqrt( self:length_sqr() );
-end
-
 function _V3_MT:dot( other ) -- dot product
     return ( self.x * other.x ) + ( self.y * other.y ) + ( self.z * other.z );
 end
-
-function _V3_MT:cross( other ) -- cross product
-    return Vector3(
-        ( self.y * other.z ) - ( self.z * other.y ),
-        ( self.z * other.x ) - ( self.x * other.z ),
-        ( self.x * other.y ) - ( self.y * other.x )
-    );
-end
-
-function _V3_MT:dist_to( other ) -- 3D length to another vector
-    return ( other - self ):length();
-end
-
-function _V3_MT:normalize() -- normalizes this vector and returns the length
-    local l = self:length();
-    if( l <= 0.0 ) then
-        return 0.0;
-    end
-
-    self.x = self.x / l;
-    self.y = self.y / l;
-    self.z = self.z / l;
-
-    return l;
-end
-
-
-function _V3_MT:normalized() -- returns a normalized unit vector
-    local l = self:length();
-    if( l <= 0.0 ) then
-        return Vector3();
-    end
-
-    return Vector3(
-        self.x / l,
-        self.y / l,
-        self.z / l
-    );
-end
-
 
 function angle_forward( angle ) -- angle -> direction vector (forward)
     local sin_pitch = math_sin( math_rad( angle.x ) );
@@ -901,7 +819,7 @@ function angle_forward( angle ) -- angle -> direction vector (forward)
     local sin_yaw   = math_sin( math_rad( angle.y ) );
     local cos_yaw   = math_cos( math_rad( angle.y ) );
 
-    return Vector3(
+    return vector(
         cos_pitch * cos_yaw,
         cos_pitch * sin_yaw,
         -sin_pitch
@@ -921,14 +839,7 @@ function get_FOV( view_angles, start_pos, end_pos ) -- get fov to a vector (need
     return math_max( 0.0, math.deg( fov ) );
 end
 
-local predict_ticks         = 17
--- end of the anti-aim peeking function for smart jitter
-
--- this is a function to help with on peeking and getting peeked functions
-local function distance_3d( x1, y1, z1, x2, y2, z2 )
-
-        return math.sqrt( ( x1-x2 )*( x1-x2 )+( y1-y2 )*( y1-y2 ) )
-end
+local predict_ticks         = 10
 
 -- function for extrapolating player
 local function extrapolate( player , ticks , x, y, z )
@@ -947,13 +858,14 @@ local function is_enemy_peeking( player )
     if speed < 5 then
         return false
     end
-    local ex, ey, ez = entity.get_origin( player ) 
-    local lx, ly, lz = entity.get_origin( entity.get_local_player ( ) )
-    local start_distance = math.abs( distance_3d( ex, ey, ez, lx, ly, lz ) )
+    local ex, ey, ez = entity.get_origin(player) 
+    local origin = vector(entity.get_origin(player))
+    local local_p = vector(entity.get_origin(entity.get_local_player()))
+    local start_distance = origin:dist(local_p)
     local smallest_distance = 999999
     for ticks = 1, predict_ticks do
-        local tex,tey,tez = extrapolate( player, ticks, ex, ey, ez )
-        local distance = math.abs( distance_3d( tex, tey, tez, lx, ly, lz ) )
+        local extrapolated = vector(extrapolate(player, ticks, ex, ey, ez))
+        local distance = math.abs(extrapolated:dist(local_p)) 
 
         if distance < smallest_distance then
             smallest_distance = distance
@@ -975,7 +887,11 @@ local function is_local_peeking_enemy( player )
     end
     local ex,ey,ez = entity.get_origin( player )
     local lx,ly,lz = entity.get_origin( entity.get_local_player() )
-    local start_distance = math.abs( distance_3d( ex, ey, ez, lx, ly, lz ) )
+
+    local origin = vector(entity.get_origin(player))
+    local local_p = vector(entity.get_origin(entity.get_local_player()))
+    
+    local start_distance = origin:dist(local_p)
     local smallest_distance = 999999
     if ticks ~= nil then
         TICKS_INFO = ticks
@@ -983,9 +899,8 @@ local function is_local_peeking_enemy( player )
     end
     for ticks = 1, predict_ticks do
 
-        local tex,tey,tez = extrapolate( entity.get_local_player(), ticks, lx, ly, lz )
-        local distance = distance_3d( ex, ey, ez, tex, tey, tez )
-
+        local extrapolated = vector(extrapolate( entity.get_local_player(), ticks, lx, ly, lz ))
+        local distance = math.abs(extrapolated:dist(local_p)) 
         if distance < smallest_distance then
             smallest_distance = math.abs(distance)
         end
@@ -997,22 +912,27 @@ local function is_local_peeking_enemy( player )
 end
 
 local detections = "WAITING"
+
 function detection()
-if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
+    if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
+    if is_rolling ~= true then return end
+
     local closest_fov           = 100000
 
     local player_list           = entity.get_players( true )
 
-    local eye_pos               = Vector3( x, y, z )
+    local eye_pos               = vector( x, y, z )
+
     x,y,z                       = client.camera_angles( )
-    local cam_angles            = Vector3( x, y, z )
+
+    local cam_angles            = vector( x, y, z )
     
     for i = 1 , #player_list do
         player                  = player_list[ i ]
         if not entity.is_dormant( player ) and entity.is_alive( player ) then
             if is_enemy_peeking( player ) or is_local_peeking_enemy( player ) then
                 last_time_peeked        = globals.curtime( )
-                local enemy_head_pos    = Vector3( entity.hitbox_position( player, 0 ) )
+                local enemy_head_pos    = vector( entity.hitbox_position( player, 0 ) )
                 local current_fov       = get_FOV( cam_angles,eye_pos, enemy_head_pos )
                 if current_fov < closest_fov then
                     closest_fov         = current_fov
@@ -1021,8 +941,8 @@ if not contains(ui.get(Exploit_mode_combobox), "Roll Angle") then return end
             end
         end
     end
-    detections = "DORMANCY"
-    local is_slowwalk = ui.get(references.slow_walk[2])
+        detections = "DORMANCY"
+        local is_slowwalk = ui.get(references.slow_walk[2])
     if needed_player ~= -1 then
         if not entity.is_dormant( player ) and entity.is_alive( player ) and is_rolling == true and not is_slowwalk then
             if ( ( is_enemy_peeking( player ) or is_local_peeking_enemy( player ) ) ) == true then
@@ -1057,6 +977,7 @@ local vars = {
     yaw_right = 0,
     jitter_left = 0,
     jitter_right = 0,
+    bodyyaw = 0,
     fake_limit_left = 0,
     fake_limit_right = 0,
     jitter_set = 0,
@@ -1073,6 +994,10 @@ end
 
 local Antiaim = {}
 
+local TAB =  { "AA", "Anti-aimbot angles"} 
+
+
+
 local function export_config()
     local settings = {}
     local clipboard = require("gamesense/clipboard")
@@ -1080,7 +1005,7 @@ local function export_config()
     for key, value in pairs(AA_S) do
         settings[tostring(value)] = {}
         for k, v in pairs(Antiaim[key]) do
-            print(ui_get(v))
+            settings[value][k] = ui_get(v)
         end
     end
 
@@ -1103,8 +1028,6 @@ local function import_config()
 
 end
 
-
-local TAB =  { "AA", "Anti-aimbot angles"} 
 local fake_yaw = {
 
     enable = ui_new_combobox( TAB[1], TAB[2], "Fake Yaw Preset", 
@@ -1119,6 +1042,7 @@ local fake_yaw = {
     config_import = ui_new_button( TAB[1], TAB[2], "Import Preset", import_config)
 }
 
+
 for i = 1, #AA_S do
     Antiaim[i] = {
         yaw_left = ui_new_slider( TAB[1], TAB[2], "Yaw +/-" ..AA_S[i], -180, 180, 15, true, "°"),
@@ -1126,6 +1050,8 @@ for i = 1, #AA_S do
 
         jitter_left = ui_new_slider( TAB[1], TAB[2], "Yaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, "°"),
         jitter_right = ui_new_slider( TAB[1], TAB[2], "\nYaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, "°"), 
+
+        bodyyaw = ui_new_slider( TAB[1], TAB[2], "Body Yaw +/-" ..AA_S[i], -180, 180, 15, true, "°"),
 
         fake_limit_left = ui_new_slider( TAB[1], TAB[2], "Fake Limit +/-" ..AA_S[i], 0, 60, 15, true, "°"),
         fake_limit_right = ui_new_slider( TAB[1], TAB[2], "\nFake Limit" ..AA_S[i], 0, 60, 15, true, "°"),
@@ -1138,6 +1064,7 @@ local function init_preset()
     ui_set(Antiaim[1].yaw_right,12)
     ui_set(Antiaim[1].jitter_left,70)
     ui_set(Antiaim[1].jitter_right,90)
+    ui_set(Antiaim[1].bodyyaw,0)
     ui_set(Antiaim[1].fake_limit_left,55)
     ui_set(Antiaim[1].fake_limit_right,59)
 
@@ -1145,6 +1072,7 @@ local function init_preset()
     ui_set(Antiaim[2].yaw_right,0)
     ui_set(Antiaim[2].jitter_left,0)
     ui_set(Antiaim[2].jitter_right,0)
+    ui_set(Antiaim[2].bodyyaw,0)
     ui_set(Antiaim[2].fake_limit_left,60)
     ui_set(Antiaim[2].fake_limit_right,60)
 
@@ -1152,6 +1080,7 @@ local function init_preset()
     ui_set(Antiaim[3].yaw_right,9)
     ui_set(Antiaim[3].jitter_left,36)
     ui_set(Antiaim[3].jitter_right,40)
+    ui_set(Antiaim[3].bodyyaw,0)
     ui_set(Antiaim[3].fake_limit_left,50)
     ui_set(Antiaim[3].fake_limit_right,59)
 
@@ -1159,6 +1088,7 @@ local function init_preset()
     ui_set(Antiaim[4].yaw_right,0)
     ui_set(Antiaim[4].jitter_left,0)
     ui_set(Antiaim[4].jitter_right,0)
+    ui_set(Antiaim[4].bodyyaw,0)
     ui_set(Antiaim[4].fake_limit_left,60)
     ui_set(Antiaim[4].fake_limit_right,60)
 
@@ -1166,6 +1096,7 @@ local function init_preset()
     ui_set(Antiaim[5].yaw_right,12)
     ui_set(Antiaim[5].jitter_left,46)
     ui_set(Antiaim[5].jitter_right,45)
+    ui_set(Antiaim[5].bodyyaw,5)
     ui_set(Antiaim[5].fake_limit_left,55)
     ui_set(Antiaim[5].fake_limit_right,59)
 
@@ -1173,6 +1104,7 @@ local function init_preset()
     ui_set(Antiaim[6].yaw_right,12)
     ui_set(Antiaim[6].jitter_left,46)
     ui_set(Antiaim[6].jitter_right,45)
+    ui_set(Antiaim[6].bodyyaw,5)
     ui_set(Antiaim[6].fake_limit_left,55)
     ui_set(Antiaim[6].fake_limit_right,59)
 end
@@ -1224,6 +1156,7 @@ local function handle_function_menu()
         ui_set_visible(Antiaim[i].yaw_right, visible)
         ui_set_visible(Antiaim[i].jitter_left, visible)
         ui_set_visible(Antiaim[i].jitter_right, visible)
+        ui_set_visible(Antiaim[i].bodyyaw, visible)
         ui_set_visible(Antiaim[i].fake_limit_left, visible)
         ui_set_visible(Antiaim[i].fake_limit_right, visible)
     end
@@ -1260,6 +1193,7 @@ local function antiaim_logic()
             vars.yaw_right = ui_get(Antiaim[1].yaw_right)
             vars.jitter_left = ui_get(Antiaim[1].jitter_left)
             vars.jitter_right = ui_get(Antiaim[1].jitter_right)
+            vars.bodyyaw = ui_get(Antiaim[1].bodyyaw)   
             vars.fake_limit_left = ui_get(Antiaim[1].fake_limit_left)
             vars.fake_limit_right = ui_get(Antiaim[1].fake_limit_right)
 
@@ -1270,6 +1204,7 @@ local function antiaim_logic()
             vars.yaw_right = ui_get(Antiaim[2].yaw_right)
             vars.jitter_left = ui_get(Antiaim[2].jitter_left)
             vars.jitter_right = ui_get(Antiaim[2].jitter_right)
+            vars.bodyyaw = ui_get(Antiaim[2].bodyyaw)   
             vars.fake_limit_left = ui_get(Antiaim[2].fake_limit_left)
             vars.fake_limit_right = ui_get(Antiaim[2].fake_limit_right)
         end
@@ -1281,6 +1216,7 @@ local function antiaim_logic()
             vars.yaw_right = ui_get(Antiaim[3].yaw_right)
             vars.jitter_left = ui_get(Antiaim[3].jitter_left)
             vars.jitter_right = ui_get(Antiaim[3].jitter_right)
+            vars.bodyyaw = ui_get(Antiaim[3].bodyyaw)   
             vars.fake_limit_left = ui_get(Antiaim[3].fake_limit_left)
             vars.fake_limit_right = ui_get(Antiaim[3].fake_limit_right)
 
@@ -1291,6 +1227,7 @@ local function antiaim_logic()
             vars.yaw_right = ui_get(Antiaim[4].yaw_right)
             vars.jitter_left = ui_get(Antiaim[4].jitter_left)
             vars.jitter_right = ui_get(Antiaim[4].jitter_right)
+            vars.bodyyaw = ui_get(Antiaim[4].bodyyaw)   
             vars.fake_limit_left = ui_get(Antiaim[4].fake_limit_left)
             vars.fake_limit_right = ui_get(Antiaim[4].fake_limit_right)
         end
@@ -1304,18 +1241,18 @@ local function antiaim_logic()
             vars.yaw_right = ui_get(Antiaim[5].yaw_right)
             vars.jitter_left = ui_get(Antiaim[5].jitter_left)
             vars.jitter_right = ui_get(Antiaim[5].jitter_right)
+            vars.bodyyaw = ui_get(Antiaim[5].bodyyaw)   
             vars.fake_limit_left = ui_get(Antiaim[5].fake_limit_left)
             vars.fake_limit_right = ui_get(Antiaim[5].fake_limit_right)
-            ui.set(references.body_yaw[2], 5)
         else
             vars.preset_state = 'INAIR (L)'
             vars.yaw_left = ui_get(Antiaim[6].yaw_left)
             vars.yaw_right = ui_get(Antiaim[6].yaw_right)
             vars.jitter_left = ui_get(Antiaim[6].jitter_left)
             vars.jitter_right = ui_get(Antiaim[6].jitter_right)
+            vars.bodyyaw = ui_get(Antiaim[6].bodyyaw)   
             vars.fake_limit_left = ui_get(Antiaim[6].fake_limit_left)
             vars.fake_limit_right = ui_get(Antiaim[6].fake_limit_right)
-            ui.set(references.body_yaw[2], 5)
         end
 	end
 	
@@ -1349,17 +1286,21 @@ local Legit_AA = false
 local function antiaim_handler(cmd)
     Jittering = false
     detection(cmd)
+    local is_backstab = contains(ui.get(misc_combobox), "Anti-Backstab") and backstab()
     local is_enable = contains(ui.get(misc_combobox), "Legit Anti-aim on use")
     local on_e = client.key_state(0x45)
     local status = freestanding()
-    local is_legtaa = (on_e and status ~= "none" and is_enable)
-    Legit_AA = is_legtaa
-    local bodyyaw_legit = (status == "left" and -180) or (status == "right" and 180) or 0
+    local is_legtaa = (on_e and status ~= "none" and is_enable) or is_backstab
+    Legit_AA = is_legtaa 
+    local bodyyaw_legit = (status == "left" and -180) or (status == "right" and 180) or (is_backstab and math.random(-1, 1)) or 0
+
     if is_legtaa then
+        ui.set(ref.aa.pitch, "Off")
         ui.set(ref.aa.yaw[1], "Off")
         ui.set(references.body_yaw[1], "Static")
         ui.set(references.body_yaw[2], bodyyaw_legit)
         ui.set(references.jitter[2], 0)
+        ui.set(references.fake_limit, 60)
     end
 
     if contains(ui.get(Exploit_mode_combobox), "Fake Yaw") and not is_legtaa then
@@ -1369,13 +1310,12 @@ local function antiaim_handler(cmd)
             Jittering = false
             else if is_rolling == false or fake_angle == false and not contains(ui.get(Exploit_mode_combobox), "Fake Yaw") then
                 Jittering = true
-                jitter()
                 if cmd.chokedcommands ~= 0 then return end
-
-                
+                jitter()
                 ui.set(ref.aa.yaw[2], antiaim_yaw_jitter(vars.yaw_left,vars.yaw_right))
                 ui.set(ref.aa.fyaw_limit, antiaim_yaw_jitter(vars.fake_limit_left,vars.fake_limit_right))
                 ui.set(ref.aa.jitter[2], antiaim_yaw_jitter(vars.jitter_left,vars.jitter_right))
+                ui.set(references.body_yaw[2], vars.bodyyaw)
             end
         end
     end
@@ -1386,7 +1326,8 @@ local fakelag_settings = ui.new_slider("AA", "Fake lag", "Limit", 1, 16, 15, tru
 local function fakelag_adapter()
     local is_onshot = ((ui.get(onshotkey) --[[or ui.get(references.doubletap[2])]]    ))
     local is_valve_server = contains(ui.get(Exploit_mode_combobox), "\aB6B665FFValve Server Bypass")
-    local real_fakelag = (is_onshot and not ui.get(references.fakeduck[1]) and 1) or (is_valve_server and 6) or (ui.get(fakelag_settings))
+    local real_fakelag = (is_onshot and not ui.get(references.fakeduck[1]) and 1) or 
+                        (is_valve_server and 6) or (ui.get(fakelag_settings))
 
     ui.set(references.fake_lag_limit , real_fakelag)
 end
@@ -1937,6 +1878,68 @@ local function inuse(e)
         end
     end
 end
+
+
+local function lean_lby(cmd, status)
+
+    --something important is minified but i dont want to waste time on deleting to seperate those
+
+    if (entity.get_prop(entity.get_local_player(), "m_MoveType") or 0) == 9 then return end
+
+    local lean_bodyyaw = anti_aim.get_desync(2)
+
+    if lean_bodyyaw == nil then return end
+
+    if contains(ui.get(Exploit_mode_combobox), "LBY Break") then 
+
+        -------------Ignoring nades
+        local local_player = entity_get_local_player()
+        local my_weapon = entity.get_player_weapon(local_player)
+        local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
+        local is_grenade =
+            ({
+            [43] = true,
+            [44] = true,
+            [45] = true,
+            [46] = true,
+            [47] = true,
+            [48] = true,
+            [68] = true
+        })[wepaon_id] or false
+        
+        if is_grenade then
+            if cmd.in_attack == 1 or cmd.in_attack2 == 1 then return end
+        end
+    
+        status = velocity() < 50 and 1 or 0
+    
+        -----------------Ignore grenade end
+        goto ignore end
+    
+        if math.abs(anti_aim.get_desync(2)) < 15 or cmd.chokedcommands == 0 then return end
+    
+        ::ignore::
+
+    if ui.get(references.quick_peek[2]) then return end
+
+    if velocity() > 50 then return end
+    cmd.in_forward = status
+
+
+end
+--[[
+client.set_event_callback("setup_command", function(cmd)
+
+    if contains(ui.get(Exploit_mode_combobox), "LBY") then
+        lean_lby(cmd, 1)
+    else
+        lean_lby(cmd, 0)
+    end
+
+
+end)
+]]
+
 -----------------Animation
 
 
@@ -1971,6 +1974,7 @@ local function handle_visible(state)
 end
 
 local function setup_command(cmd)
+
     valve_ds()
     ladd_State()
     antiaim_handler(cmd)
@@ -2031,3 +2035,4 @@ local initialize_btn = ui.new_button("AA", "Anti-aimbot angles", "Initialize mlc
 client.set_event_callback("paint_ui", function()
     ui.set_visible(initialize_btn, disable)
 end)
+
