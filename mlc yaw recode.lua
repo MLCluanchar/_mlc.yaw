@@ -1,5 +1,5 @@
 ---mlc yaw recode 
-local antiaim = require 'gamesense/antiaim_funcs'
+local anti_aim = require 'gamesense/antiaim_funcs'
 local ffi = require "ffi"
 local vector = require("vector")
 ---setupcommand reference
@@ -407,6 +407,88 @@ local m_render_engine = (function()
 	end;
 	return a
 end)()
+
+
+local solus_render = (function()
+    local solus_m = {}
+    local RoundedRect = function(x, y, width, height, radius, r, g, b, a)
+        renderer.rectangle(x + radius, y, width - radius * 2, radius, r, g, b, a)
+        renderer.rectangle(x, y + radius, radius, height - radius * 2, r, g, b, a)
+        renderer.rectangle(x + radius, y + height - radius, width - radius * 2, radius, r, g, b, a)
+        renderer.rectangle(x + width - radius, y + radius, radius, height - radius * 2, r, g, b, a)
+        renderer.rectangle(x + radius, y + radius, width - radius * 2, height - radius * 2, r, g, b, a)
+        renderer.circle(x + radius, y + radius, r, g, b, a, radius, 180, 0.25)
+        renderer.circle(x + width - radius, y + radius, r, g, b, a, radius, 90, 0.25)
+        renderer.circle(x + radius, y + height - radius, r, g, b, a, radius, 270, 0.25)
+        renderer.circle(x + width - radius, y + height - radius, r, g, b, a, radius, 0, 0.25)
+    end
+    local rounding = 4
+    local rad = rounding + 2
+    local n = 45
+    local o = 20
+    local OutlineGlow = function(x, y, w, h, radius, r, g, b, a)
+        renderer.rectangle(x + 2, y + radius + rad, 1, h - rad * 2 - radius * 2, r, g, b, a)
+        renderer.rectangle(x + w - 3, y + radius + rad, 1, h - rad * 2 - radius * 2, r, g, b, a)
+        renderer.rectangle(x + radius + rad, y + 2, w - rad * 2 - radius * 2, 1, r, g, b, a)
+        renderer.rectangle(x + radius + rad, y + h - 3, w - rad * 2 - radius * 2, 1, r, g, b, a)
+        renderer.circle_outline(x + radius + rad, y + radius + rad, r, g, b, a, radius + rounding, 180, 0.25, 1)
+        renderer.circle_outline(x + w - radius - rad, y + radius + rad, r, g, b, a, radius + rounding, 270, 0.25, 1)
+        renderer.circle_outline(x + radius + rad, y + h - radius - rad, r, g, b, a, radius + rounding, 90, 0.25, 1)
+        renderer.circle_outline(x + w - radius - rad, y + h - radius - rad, r, g, b, a, radius + rounding, 0, 0.25, 1)
+    end
+    local FadedRoundedRect = function(x, y, w, h, radius, r, g, b, a, glow)
+        local n = a / 255 * n
+        renderer.rectangle(x + radius, y, w - radius * 2, 1, r, g, b, a)
+        renderer.circle_outline(x + radius, y + radius, r, g, b, a, radius, 180, 0.25, 1)
+        renderer.circle_outline(x + w - radius, y + radius, r, g, b, a, radius, 270, 0.25, 1)
+        renderer.gradient(x, y + radius, 1, h - radius * 2, r, g, b, a, r, g, b, n, false)
+        renderer.gradient(x + w - 1, y + radius, 1, h - radius * 2, r, g, b, a, r, g, b, n, false)
+        renderer.circle_outline(x + radius, y + h - radius, r, g, b, n, radius, 90, 0.25, 1)
+        renderer.circle_outline(x + w - radius, y + h - radius, r, g, b, n, radius, 0, 0.25, 1)
+        renderer.rectangle(x + radius, y + h - 1, w - radius * 2, 1, r, g, b, n)
+        -----------can add here a restriction
+            for radius = 4, glow do
+                local radius = radius / 2
+                OutlineGlow(x - radius, y - radius, w + radius * 2, h + radius * 2, radius, r, g, b, glow - radius * 2)
+            end
+    end
+    solus_m.linear_interpolation = function(start, _end, time)
+        return (_end - start) * time + start
+    end
+    solus_m.clamp = function(value, minimum, maximum)
+        if minimum > maximum then
+            return math.min(math.max(value, maximum), minimum)
+        else
+            return math.min(math.max(value, minimum), maximum)
+        end
+    end
+    solus_m.lerp = function(start, _end, time)
+        time = time or 0.005
+        time = solus_m.clamp(globals_frametime.frametime() * time * 175.0, 0.01, 1.0)
+        local a = solus_m.linear_interpolation(start, _end, time)
+        if _end == 0.0 and a < 0.01 and a > -0.01 then
+            a = 0.0
+        elseif _end == 1.0 and a < 1.01 and a > 0.99 then
+            a = 1.0
+        end
+        return a
+    end
+    solus_m.container = function(x, y, w, h, r, g, b, a, alpha, fn)
+        if alpha * 255 > 0 then
+            renderer.blur(x, y, w, h)
+        end
+        RoundedRect(x, y, w, h, rounding, 17, 17, 17, a)
+        FadedRoundedRect(x, y, w, h, rounding, r, g, b, alpha * 255, alpha * o)
+        if not fn then
+            return
+        end
+        fn(x + rounding, y + rounding, w - rounding * 2, h - rounding * 2.0)
+    end
+
+
+
+    return solus_m
+end)()
 ---Polygens
 lua_log("Welcome to mlcyaw recode, update log 2022/7/14")
 lua_log("discord:https://discord.gg/GDy32vshVG")
@@ -493,9 +575,9 @@ local mlc = {
 
     --Misc Parts
     misc_combobox = ui_new_multiselect(TAB[1], TAB[2], "Misc",
-    "Debug Tools",
-    "Old Animation", "Legit Anti-aim on use", 
-    "Legit Anti-aim on Backstab"),
+    "Debug Tools", "Old Animation", 
+    "Legit Anti-aim on use","Legit Anti-aim on Backstab",
+    "Logs", "Logs Console"),
     
     ---Roll Exploits Part
     roll = {
@@ -889,7 +971,7 @@ end
 
 local function antiaim_yaw_jitter(a,b)
     local desync = entity_get_prop(entity_get_local_player(), "m_flPoseParameter", 11) * 120 - 60
-    local overlap = antiaim.get_overlap(rotation)
+    local overlap = anti_aim.get_overlap(rotation)
     Jitter_Status = (overlap > 0.7 and "FAKE YAW +/-") or "OVERLAP-"
     return (desync < 0 and overlap > 0.6 and a or b)
 end
@@ -1341,6 +1423,244 @@ local function manual_indicator()
     end
 end
 
+
+local log = {}
+
+log.byaw_log = {
+    info = '',
+    state = false,
+}
+
+log.on_aim_miss = function(e)
+    local logs = contains(ui_get(mlc.misc_combobox), 'Logs')
+    local console = contains(ui_get(mlc.misc_combobox), 'Logs Console')
+    local hitgroup_names = { "body", "head", "chest", "stomach", "left arm", "right arm", "left leg", "right leg", "neck", "?", "gear" }
+    local group = hitgroup_names[e.hitgroup + 1] or "?"
+    local target_name = entity.get_player_name(e.target)
+    local reason
+    if e.reason == "?" then
+    	reason = "Resolver"
+    else
+    	reason = e.reason
+    end
+
+    log.byaw_log.state = true
+    if e.reason == 'spread' then
+    log.byaw_log.info = 'Missed \a90FF98FF'..target_name..'\aFFFFFFFF HB: \aFFFDA6FF'..group..', \aFFFFFFFFreason: \affbebeff'..reason.." \aFFFDA6FF("..math.floor(e.hit_chance).."%)"
+        if console then
+            lua_log('Missed '..target_name..' HB: '..group..', reason: '..reason.." ("..math.floor(e.hit_chance).."%)")
+        end
+    else
+    
+    log.byaw_log.info = 'Missed \a90FF98FF'..target_name..'\aFFFFFFFF HB: \aFFFDA6FF'..group..', \aFFFFFFFFreason: \affbebeff'..reason
+        if console then
+            lua_log('Missed '..target_name..' HB: '..group..', reason: '..reason)
+        end
+    end
+end
+
+log.on_player_hurt = function(e)
+    local attacker_id = client.userid_to_entindex(e.attacker)
+    local logs = contains(ui_get(mlc.misc_combobox), 'Logs')
+    local console = contains(ui_get(mlc.misc_combobox), 'Logs Console')
+    if attacker_id == nil then
+        return
+    end
+
+    if attacker_id ~= entity.get_local_player() then
+        return
+    end
+
+    local hitgroup_names = { "body", "head", "chest", "stomach", "left arm", "right arm", "left leg", "right leg", "neck", "?", "gear" }
+    local group = hitgroup_names[e.hitgroup + 1] or "?"
+    local target_id = client.userid_to_entindex(e.userid)
+    local target_name = entity.get_player_name(target_id)
+        log.byaw_log.state = true
+        log.byaw_log.info = 'Hit \a90FF98FF'..target_name..'\aFFFFFFFF in\affbebeff '.. e.dmg_health ..'\aFFFFFFFF, HB: \aFFFDA6FF'..group..',\aFFFFFFFF HP:'.. e.health
+        lua_log('Hit \a90FF98FF'..target_name..'\aFFFFFFFF in\affbebeff '.. e.dmg_health ..'\aFFFFFFFF, HB: \aFFFDA6FF'..group..',\aFFFFFFFF HP:'.. e.health)
+end
+local hurt = false
+
+log.local_got_hurt = function(e)
+    local logs = contains(ui_get(mlc.misc_combobox), 'Logs')
+    local console = contains(ui_get(mlc.misc_combobox), 'Logs Console')
+    local hitgroup_names = { "body", "head", "chest", "stomach", "left arm", "right arm", "left leg", "right leg", "neck", "?", "gear" }
+    local group = hitgroup_names[e.hitgroup + 1] or "?"
+    if client.userid_to_entindex( e.userid ) == entity.get_local_player( ) then
+        local overlap = 100 - math.floor(anti_aim.get_overlap() * 100)
+        local attN = entity.get_player_name(client.userid_to_entindex( e.attacker ) )
+        hurt = true
+        log.byaw_log.state = true
+        log.byaw_log.info = 'Impact Detected. Hit \aFFFDA6FF'..group..'\aFFFFFFFF with Overlap: (\aFFFDA6FF'..overlap..'%\aFFFFFFFF).Jitter:'..ui.get(references.jitter[2]..'.')
+        if console then
+            lua_log('Impact Detected. Hit \aFFFDA6FF'..group..'\aFFFFFFFF with Overlap: (\aFFFDA6FF'..overlap..'%\aFFFFFFFF).Jitter:'..ui.get(references.jitter[2]..'.'))
+        end
+    else
+        hurt = false
+    end
+
+end
+log.miss_brute = function(e)
+    -- credit to @ally https://gamesense.pub/forums/viewtopic.php?id=31914
+    -- credit to @ally https://gamesense.pub/forums/viewtopic.php?id=31914
+    local function KaysFunction(A,B,C)
+        local d = (A-B) / A:dist(B)
+        local v = C - B
+        local t = v:dot(d) 
+        local P = B + d:scaled(t)
+        
+        return P:dist(C)
+    end
+
+	local local_player = entity.get_local_player()
+	local shooter = client.userid_to_entindex(e.userid)
+
+	if not entity.is_enemy(shooter) or not entity.is_alive(local_player) then
+		return
+	end
+
+	local shot_start_pos 	= vector(entity.get_prop(shooter, "m_vecOrigin"))
+	shot_start_pos.z 		= shot_start_pos.z + entity.get_prop(shooter, "m_vecViewOffset[2]")
+	local eye_pos			= vector(client.eye_position())
+	local shot_end_pos 		= vector(e.x, e.y, e.z)
+	local closest			= KaysFunction(shot_start_pos, shot_end_pos, eye_pos)
+
+	if closest < 35 then
+        local overlap = math.floor(anti_aim.get_overlap() * 100)
+        --if hurt then return end
+        log.byaw_log.state = true
+        log.byaw_log.info = 'Miss Detected. Overlap: \aFFFDA6FF('..overlap..'%\aFFFFFFFF), Jitter:'..ui.get(references.jitter[2]..'.')
+
+	end
+
+end
+
+log.draw = function(...)
+
+    local animation_cache = {}
+    local draw_event_list = {}
+
+    local function lerp(start, vend, time)
+        if not start then start = 0 end
+        local cache_name = string.format('%s,%s,%s',start,vend,time)
+        if animation_cache[cache_name] == nil then
+            animation_cache[cache_name] = 0
+        end
+
+        animation_cache[cache_name] = start + (vend - start) * time
+        return animation_cache[cache_name]
+    end
+
+    local function handler_event()
+        local sx, sy = client.screen_size()
+        local x, y = 20 , sy/4
+        if log.byaw_log.state then
+            log.byaw_log.state = false
+            table.insert(draw_event_list,{
+                text = log.byaw_log.info ,
+                timer = globals.realtime() ,
+                alpha = 0 ,
+                x_add = x ,
+            })
+            log.byaw_log.info = ''
+        end
+    end
+
+    local function draw()
+
+        local logs = contains(ui_get(mlc.misc_combobox), 'Logs')
+        local console = contains(ui_get(mlc.misc_combobox), 'Logs Console')
+        if not logs then return end
+        local sx, sy = client.screen_size()
+        local x, y = sx/2 , sy/2
+        local font = ''
+        handler_event()
+
+        event_name = event_name == nil and 0 or event_name
+        if #draw_event_list > 0 then
+            event_name = lerp(
+                event_name, 200, globals.frametime() * 6
+            )
+        else
+            event_name = lerp(
+                event_name, 0, globals.frametime() * 6
+            )
+        end
+
+        local _,normal_width = renderer.measure_text(font)
+
+        for i,info in ipairs(draw_event_list) do
+
+            if i > 4 then
+                table.remove(draw_event_list,i)
+            end
+
+            if not info.text or info.text == '' then goto skip end
+
+            local length,width = renderer.measure_text(font, '['..i..'] '..info.text)
+            
+            if info.timer + 3.5 < globals.realtime() then
+                info.alpha = lerp(
+                    info.alpha, 0, globals.frametime() * 6
+                )
+                info.x_add = lerp(
+                    info.x_add,80,globals.frametime() * 2
+                )
+            else
+                info.alpha = lerp(
+                    info.alpha, 255, globals.frametime() * 6
+                )
+                info.x_add = lerp(
+                    info.x_add,-40,globals.frametime() * 2
+                )
+            end
+            local x_offset = 28
+            local y_offset = 20
+            local text_size = {renderer.measure_text(nil,info.text)}
+            if logs then
+                solus_render.container(x - text_size[1]/2 - 7 - x_offset ,y+i * (width+10) + info.x_add  + 250 + y_offset, text_size[1] + 55, width + 6, 255, 125, 145, 100, 1.5)
+                renderer.text(x - text_size[1]/2 + 2 - x_offset,y+i * (width+10) + info.x_add + 250 + 2 + y_offset,255,255,255,info.alpha,font,0,'  \aFFB6C1FF[mlc]\aFFFFFFFF '..info.text)
+            end
+            if info.timer + 4 < globals.realtime() then
+                table.remove(draw_event_list,i)
+            end
+
+            ::skip::
+        end
+    end
+
+    return {
+        main = draw
+    }
+end
+
+local au_dog = log.draw()
+
+local function bullet_impact(shot)
+    local logs = contains(ui_get(mlc.misc_combobox), 'Logs')
+    local console = contains(ui_get(mlc.misc_combobox), 'Logs Console')
+    if logs or console then
+        log.miss_brute(shot)
+    end
+end
+
+local function player_hurt(shot)
+    local logs = contains(ui_get(mlc.misc_combobox), 'Logs')
+    local console = contains(ui_get(mlc.misc_combobox), 'Logs Console')
+    if logs or console then
+        log.local_got_hurt(shot)
+        log.on_player_hurt(shot)
+    end
+end
+
+local function aim_miss(shot)
+    local logs = contains(ui_get(mlc.misc_combobox), 'Logs')
+    local console = contains(ui_get(mlc.misc_combobox), 'Logs Console')
+    if logs or console then
+        log.on_aim_miss(shot)
+    end
+end
+
 local function pre_render()
     if contains(ui_get(mlc.misc_combobox), "Old Animation") then 
         entity_set_prop(entity_get_local_player(), "m_flPoseParameter", 1, 6) 
@@ -1366,6 +1686,10 @@ local function run_command(cmd)
 end
 
 local function setup_command(cmd)
+
+    local local_player = entity.get_local_player()
+	if not entity.is_alive(local_player) then return end
+
     fake_angle_handler(cmd)
     antiaim_handler(cmd)
     fakelag_handle(cmd)
@@ -1373,11 +1697,17 @@ local function setup_command(cmd)
 end
 
 local function paint_ui()
+
+    local local_player = entity.get_local_player()
+	if not entity.is_alive(local_player) then return end
+
     local status_netgraph = contains(ui_get(mlc.indicators), "Status Netgraph")
     if status_netgraph then indicator() end
 
     local manual_ind = contains(ui_get(mlc.indicators), "Manual Indicator")
     if manual_ind then manual_indicator() end
+
+    au_dog.main()
 
     handle_function_menu()
 end
@@ -1386,6 +1716,9 @@ local disable = true
 handle_function_menu()
 handle_menu2(false)
 local function initialize()
+    client.set_event_callback('bullet_impact', bullet_impact)
+    client.set_event_callback('player_hurt', player_hurt)
+    client.set_event_callback('aim_miss',aim_miss)
     client.set_event_callback("shutdown", shutdown)
     client.set_event_callback("pre_render", pre_render)
     client.set_event_callback("setup_command", setup_command)
