@@ -329,6 +329,12 @@ local references = {
     -- end of menu references and menu creati
 }
 local onshot, onshotkey = ui.reference('aa', 'other', 'On shot anti-aim')
+local gamerules_ptr = client.find_signature("client.dll", "\x83\x3D\xCC\xCC\xCC\xCC\xCC\x74\x2A\xA1")
+local dsreferences = {
+    gamerules = ffi.cast("intptr_t**", ffi.cast("intptr_t", gamerules_ptr) + 2)[0],
+    is_valve_spoof = false,
+    ticks_user = ui.reference("misc", "settings", "sv_maxusrcmdprocessticks"),
+}
 --Local variables
 local m_render_engine = (function()
     local renderer_circle = renderer.circle
@@ -1164,9 +1170,23 @@ local function fakelag_handle(cmd)
     local is_fakeangle = contains(ui_get(mlc.Exploit_mode_combobox), "Fake Angle") and fake_angle
     local real_fakelag = (is_onshot and not ui_get(references.fakeduck[1]) and 1) or (is_fakeangle and 17) or
                         (is_valve_server and ((ui_get(mlc.fakelag.limit) > 6) and 6) or (ui_get(mlc.fakelag.limit))) or 
-                        (ui_get(mlc.fakelag.limit))
+                        (ui_get(mlc.fakelag.limit) > ui.get(dsreferences.ticks_user) - 1 and ui.get(dsreferences.ticks_user) - 1)
 
     ui_set(references.fake_lag_limit, real_fakelag)
+end
+
+local function tickbase_nadle(cmd)
+    local is_valve_ds = ffi.cast('bool*', dsreferences.gamerules[0] + 124)
+    if is_valve_ds ~= nil then
+        if contains(ui.get(mlc.Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then
+            is_valve_ds[0] = 0
+            dsreferences.is_valve_spoof = true
+            ui_set(dsreferences.ticks_user, 7)
+        else 
+            dsreferences.is_valve_spoof = false
+            ui_set(dsreferences.ticks_user, 18)
+        end
+    end
 end
 
 local a = {
@@ -1328,7 +1348,10 @@ local function pre_render()
 end
 
 local function shutdown()
-
+    local is_valve_ds = ffi.cast('bool*', dsreferences.gamerules[0] + 124)
+    if dsreferences.is_valve_spoof == true then 
+        is_valve_ds[0] = 0
+    end
     ui_set_visible(references.fake_lag_limit, true)
 end
 
@@ -1346,6 +1369,7 @@ local function setup_command(cmd)
     fake_angle_handler(cmd)
     antiaim_handler(cmd)
     fakelag_handle(cmd)
+    tickbase_nadle(cmd)
 end
 
 local function paint_ui()
