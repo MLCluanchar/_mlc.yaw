@@ -85,6 +85,61 @@ local function contains(tbl, val)
     end
     return false
 end
+
+local client_color_log, type = client.color_log, type;
+
+local colorful_text = {};
+
+colorful_text.console = function(self, ...)
+    for i, v in ipairs({ ... }) do
+        if type(v[1]) == 'table' and type(v[2]) == 'table' and type(v[3]) == 'string' then
+            for k = 1, #v[3] do
+                local l = self:lerp(v[1], v[2], k / #v[3]);
+                client_color_log(l[1], l[2], l[3], v[3]:sub(k, k) .. '\0');
+            end
+        elseif type(v[1]) == 'table' and type(v[2]) == 'string' then
+            client_color_log(v[1][1], v[1][2], v[1][3], v[2] .. '\0');
+        end
+    end
+end
+
+colorful_text.lerp = function(self, from, to, duration)
+    if type(from) == 'table' and type(to) == 'table' then
+        return { 
+            self:lerp(from[1], to[1], duration), 
+            self:lerp(from[2], to[2], duration), 
+            self:lerp(from[3], to[3], duration) 
+        };
+    end
+
+    return from + (to - from) * duration;
+end
+
+colorful_text.log = function(self, ...)
+    for i, v in ipairs({ ... }) do
+        if type(v) == 'table' then
+            if type(v[1]) == 'table' then
+                if type(v[2]) == 'string' then
+                    self:console({ v[1], v[1], v[2] })
+                    if (v[3]) then
+                        self:console({ { 255, 255, 255 }, '\n' })
+                    end
+                elseif type(v[2]) == 'table' then
+                    self:console({ v[1], v[2], v[3] })
+                    if v[4] then
+                        self:console({ { 255, 255, 255 }, '\n' })
+                    end
+                end
+            elseif type(v[1]) == 'string' then
+                self:console({ { 205, 205, 205 }, v[1] });
+                if v[2] then
+                    self:console({ { 255, 255, 255 }, '\n' })
+                end
+            end
+        end
+    end
+end
+
 local lua_log = function(...) --inspired by sapphyrus' multicolorlog
     client.color_log(255, 59, 59, "[ mlc.yaw ]\0")
     local arg_index = 1
@@ -502,7 +557,7 @@ local vars = {
 
     yaw_left = 0, yaw_right = 0, 
     jitter_left = 0, jitter_right = 0,
-    bodyyaw = 0,
+    bodyyaw_left = 0, bodyyaw_right = 0,
     fake_limit_left = 0, fake_limit_right = 0,
     jitter_set = 0, preset_state = 'wait',
 
@@ -585,7 +640,7 @@ local mlc = {
         label = ui_new_label(TAB[1], TAB[2], ">> Roll Angle"),
         ---Main Multiselect
         mode = ui_new_multiselect(TAB[1], TAB[2], "Roll State On:",
-        "In Air", "On Ladders", "Low Stamina", "On Key", "< Speed Velocity"),
+        "In Air", "On Ladders", "Low Stamina", "On Key", "On Slow Walk", "< Speed Velocity"),
 
         ---Main Slider
         slider_adjust = ui_new_slider(TAB[1], TAB[2], "Roll", 0, 90, 50, true, ""),
@@ -662,7 +717,8 @@ for i = 1, #AA_S do
         jitter_left = ui_new_slider( TAB[1], TAB[2], "Yaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, d),
         jitter_right = ui_new_slider( TAB[1], TAB[2], "\nYaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, d), 
 
-        bodyyaw = ui_new_slider( TAB[1], TAB[2], "Body Yaw +/-" ..AA_S[i], -180, 180, 15, true, d),
+        bodyyaw_left = ui_new_slider( TAB[1], TAB[2], "Body Yaw +/-" ..AA_S[i], -180, 180, 15, true, d),
+        bodyyaw_right = ui_new_slider( TAB[1], TAB[2], "\nBody Yaw +/-" ..AA_S[i], -180, 180, 15, true, d),
 
         fake_limit_left = ui_new_slider( TAB[1], TAB[2], "Fake Limit +/-" ..AA_S[i], 0, 60, 15, true, d),
         fake_limit_right = ui_new_slider( TAB[1], TAB[2], "\nFake Limit" ..AA_S[i], 0, 60, 15, true, d),
@@ -673,32 +729,32 @@ local function init_preset()
 
     ui_set(Antiaim[1].yaw_left,0) ui_set(Antiaim[1].yaw_right,12) 
     ui_set(Antiaim[1].jitter_left,70) ui_set(Antiaim[1].jitter_right,90) 
-    ui_set(Antiaim[1].bodyyaw,0)
+    ui_set(Antiaim[1].bodyyaw_left,0) ui_set(Antiaim[1].bodyyaw_right,0)
     ui_set(Antiaim[1].fake_limit_left,55) ui_set(Antiaim[1].fake_limit_right,59)
 
     ui_set(Antiaim[2].yaw_left,0) ui_set(Antiaim[2].yaw_right,0)
     ui_set(Antiaim[2].jitter_left,0) ui_set(Antiaim[2].jitter_right,0)
-    ui_set(Antiaim[2].bodyyaw,0)
+    ui_set(Antiaim[2].bodyyaw_left,0) ui_set(Antiaim[2].bodyyaw_right,0)
     ui_set(Antiaim[2].fake_limit_left,60) ui_set(Antiaim[2].fake_limit_right,60)
 
     ui_set(Antiaim[3].yaw_left,12) ui_set(Antiaim[3].yaw_right,9)
     ui_set(Antiaim[3].jitter_left,36) ui_set(Antiaim[3].jitter_right,40)
-    ui_set(Antiaim[3].bodyyaw,0)
+    ui_set(Antiaim[3].bodyyaw_left,0) ui_set(Antiaim[3].bodyyaw_right,0)
     ui_set(Antiaim[3].fake_limit_left,50) ui_set(Antiaim[3].fake_limit_right,59)
 
     ui_set(Antiaim[4].yaw_left,0) ui_set(Antiaim[4].yaw_right,0)
     ui_set(Antiaim[4].jitter_left,0) ui_set(Antiaim[4].jitter_right,0)
-    ui_set(Antiaim[4].bodyyaw,0)
+    ui_set(Antiaim[4].bodyyaw_left,0) ui_set(Antiaim[4].bodyyaw_right,0)
     ui_set(Antiaim[4].fake_limit_left,60) ui_set(Antiaim[4].fake_limit_right,60)
 
     ui_set(Antiaim[5].yaw_left,18) ui_set(Antiaim[5].yaw_right,12)
     ui_set(Antiaim[5].jitter_left,46) ui_set(Antiaim[5].jitter_right,45)
-    ui_set(Antiaim[5].bodyyaw,5)
+    ui_set(Antiaim[5].bodyyaw_left,5) ui_set(Antiaim[5].bodyyaw_right,5)
     ui_set(Antiaim[5].fake_limit_left,55) ui_set(Antiaim[5].fake_limit_right,59)
 
     ui_set(Antiaim[6].yaw_left,18) ui_set(Antiaim[6].yaw_right,12)
     ui_set(Antiaim[6].jitter_left,46) ui_set(Antiaim[6].jitter_right,45)
-    ui_set(Antiaim[6].bodyyaw,5)
+    ui_set(Antiaim[6].bodyyaw_left,5) ui_set(Antiaim[6].bodyyaw_right,5)
     ui_set(Antiaim[6].fake_limit_left,55) ui_set(Antiaim[6].fake_limit_right,59)
 end
 
@@ -776,7 +832,8 @@ local function handle_function_menu()
         ui_set_visible(Antiaim[i].yaw_right, visible)
         ui_set_visible(Antiaim[i].jitter_left, visible)
         ui_set_visible(Antiaim[i].jitter_right, visible)
-        ui_set_visible(Antiaim[i].bodyyaw, visible)
+        ui_set_visible(Antiaim[i].bodyyaw_left, visible)
+        ui_set_visible(Antiaim[i].bodyyaw_right, visible)
         ui_set_visible(Antiaim[i].fake_limit_left, visible)
         ui_set_visible(Antiaim[i].fake_limit_right, visible)
     end
@@ -819,11 +876,15 @@ local function Roll_Angle(cmd)
 
     local on_ladders = entity.get_prop(local_player, "m_MoveType") == 9
     local on_ladders_bind = contains(ui_get(mlc.roll.mode), "On Ladders")
+
+    local on_slowwalk = ui_get(references.slow_walk[2])
+    local on_slowwalk_bind = contains(ui_get(mlc.roll.mode), "On Slow Walk")
     --Movement Libary
 
     local roll_bind = ui_get(mlc.roll.slider_roll)
     local air_status = (InAir and InAir_bind)
     local key_status = (onkey and onkey_bind)
+    local sw_status = (on_slowwalk and on_slowwalk_bind)
     local ladder_status = (on_ladders and on_ladders_bind)
     local hit_bind = (speed_slider)
     local stamina_status = (Stamina_bind and Stamina_slider) or 0
@@ -834,6 +895,7 @@ local function Roll_Angle(cmd)
     local should_roll   = rollangle and (
                         air_status == true or 
                         key_status == true or
+                        sw_status == true or
                         ((onhit >= 0.9 and Speed_bind) and Speed <= hit_bind) or
                         Stamina <= stamina_status or
                         ladder_status)
@@ -996,7 +1058,8 @@ local function fake_yaw(cmd)
     vars.yaw_right = ui_get(Antiaim[state].yaw_right)
     vars.jitter_left = ui_get(Antiaim[state].jitter_left)
     vars.jitter_right = ui_get(Antiaim[state].jitter_right)
-    vars.bodyyaw = ui_get(Antiaim[state].bodyyaw)
+    vars.bodyyaw_left = ui_get(Antiaim[state].bodyyaw_left)
+    vars.bodyyaw_right = ui_get(Antiaim[state].bodyyaw_right)
     vars.fake_limit_left = ui_get(Antiaim[state].fake_limit_left)
     vars.fake_limit_right = ui_get(Antiaim[state].fake_limit_right)
 end
@@ -1211,7 +1274,7 @@ local function antiaim_handler(cmd)
     local jitter_yaw = antiaim_yaw_jitter(vars.yaw_left, vars.yaw_right)
     local jitter_jitter = antiaim_yaw_jitter(vars.jitter_left, vars.jitter_right)
     local jitter_fake_limit = antiaim_yaw_jitter(vars.fake_limit_left, vars.fake_limit_right)
-    local jitter_bodyyaw = vars.bodyyaw
+    local jitter_bodyyaw = antiaim_yaw_jitter(vars.bodyyaw_left, vars.bodyyaw_right)
     --Handling Jitter Mode Anti aim
 
     antiaim.Pitch = (is_legit_run and legit_off) or "Minimal"
@@ -1252,15 +1315,18 @@ local function fakelag_handle(cmd)
     local is_fakeangle = contains(ui_get(mlc.Exploit_mode_combobox), "Fake Angle") and fake_angle
     local real_fakelag = (is_onshot and not ui_get(references.fakeduck[1]) and 1) or (is_fakeangle and 17) or
                         (is_valve_server and ((ui_get(mlc.fakelag.limit) > 6) and 6) or (ui_get(mlc.fakelag.limit))) or 
-                        (ui_get(mlc.fakelag.limit) > ui.get(dsreferences.ticks_user) - 1 and ui.get(dsreferences.ticks_user) - 1)
+                        (ui_get(mlc.fakelag.limit) > ui.get(dsreferences.ticks_user) - 1 and ui.get(dsreferences.ticks_user) - 1
+                        or (ui_get(mlc.fakelag.limit))) or (ui_get(mlc.fakelag.limit))
 
     ui_set(references.fake_lag_limit, real_fakelag)
 end
 
 local function tickbase_nadle(cmd)
     local is_valve_ds = ffi.cast('bool*', dsreferences.gamerules[0] + 124)
+    local is_valve_enable = contains(ui.get(mlc.Exploit_mode_combobox), "\aB6B665FFValve Server Bypass")
+
     if is_valve_ds ~= nil then
-        if contains(ui.get(mlc.Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then
+        if is_valve_enable then
             is_valve_ds[0] = 0
             dsreferences.is_valve_spoof = true
             ui_set(dsreferences.ticks_user, 7)
@@ -1293,6 +1359,9 @@ return start + (vend - start) * time end
 local function indicator()
     local ss = {client_screen_size()}
     local center_x, center_y = ss[1] / 2, ss[2] / 2
+
+    local local_player = entity_get_local_player()
+	if not entity_is_alive(local_player) then return end
 
     for i = 1,  #a.header, 1 do
         local hit = (entity_get_prop(entity_get_local_player(), "m_flVelocityModifier"))
@@ -1448,13 +1517,36 @@ log.on_aim_miss = function(e)
     if e.reason == 'spread' then
     log.byaw_log.info = 'Missed \a90FF98FF'..target_name..'\aFFFFFFFF HB: \aFFFDA6FF'..group..', \aFFFFFFFFreason: \affbebeff'..reason.." \aFFFDA6FF("..math.floor(e.hit_chance).."%)"
         if console then
-            lua_log('Missed '..target_name..' HB: '..group..', reason: '..reason.." ("..math.floor(e.hit_chance).."%)")
+            colorful_text:log(
+                { { 255, 59, 59 }, "[ mlc.yaw ] " },
+                { { 255, 255, 255}, "Missed "},
+                { { 144, 255, 152}, target_name},
+                { { 255, 255, 255}, ", HB: "},
+                { { 255, 253, 166}, group},
+                { { 255, 255, 255}, ", reason: "},
+                { { 255, 190, 190}, reason},
+                { { 255, 253, 166}, " ("},
+                { { 255, 253, 166}, tostring(math.floor(e.hit_chance))},
+                { { 255, 253, 166}, "%)" });
+                client.color_log(217, 217, 217, " ") -- this is needed to end the line
+            --lua_log('Missed '..target_name..' HB: '..group..', reason: '..reason.." ("..math.floor(e.hit_chance).."%)")
+
+
         end
     else
     
     log.byaw_log.info = 'Missed \a90FF98FF'..target_name..'\aFFFFFFFF HB: \aFFFDA6FF'..group..', \aFFFFFFFFreason: \affbebeff'..reason
         if console then
-            lua_log('Missed '..target_name..' HB: '..group..', reason: '..reason)
+            colorful_text:log(
+                { { 255, 59, 59 }, "[ mlc.yaw ] " },
+                { { 255, 255, 255}, "Missed "},
+                { { 144, 255, 152}, target_name},
+                { { 255, 255, 255}, ", HB:"},
+                { { 255, 253, 166}, group},
+                { { 255, 255, 255}, ", reason: "},
+                { { 255, 190, 190}, reason});
+                client.color_log(217, 217, 217, " ") -- this is needed to end the line
+            --lua_log('Missed '..target_name..' HB: '..group..', reason: '..reason)
         end
     end
 end
@@ -1474,10 +1566,22 @@ log.on_player_hurt = function(e)
     local hitgroup_names = { "body", "head", "chest", "stomach", "left arm", "right arm", "left leg", "right leg", "neck", "?", "gear" }
     local group = hitgroup_names[e.hitgroup + 1] or "?"
     local target_id = client.userid_to_entindex(e.userid)
-    local target_name = entity.get_player_name(target_id)
+    local target_name = entity_get_player_name(target_id)
+    local entix_health = e.dmg_health
         log.byaw_log.state = true
         log.byaw_log.info = 'Hit \a90FF98FF'..target_name..'\aFFFFFFFF in\affbebeff '.. e.dmg_health ..'\aFFFFFFFF, HB: \aFFFDA6FF'..group..',\aFFFFFFFF HP:'.. e.health
-        lua_log('Hit \a90FF98FF'..target_name..'\aFFFFFFFF in\affbebeff '.. e.dmg_health ..'\aFFFFFFFF, HB: \aFFFDA6FF'..group..',\aFFFFFFFF HP:'.. e.health)
+
+        colorful_text:log(
+            { { 255, 59, 59 }, "[ mlc.yaw ] " },
+            { { 255, 255, 255}, "Hit "},
+            { { 144, 255, 152}, entity_get_player_name(client.userid_to_entindex(e.userid))},
+            { { 255, 255, 255}, " in "},
+            { { 255, 253, 166}, tostring(e.dmg_health)},
+            { { 255, 255, 255}, ", HB: "},
+            { { 255, 190, 190}, hitgroup_names[e.hitgroup + 1] or "?"},
+            { { 255, 255, 255}, ", HP: "},
+            { { 255, 190, 190}, tostring(e.health)});
+        client.color_log(217, 217, 217, " ") -- this is needed to end the line
 end
 local hurt = false
 
@@ -1492,8 +1596,18 @@ log.local_got_hurt = function(e)
         hurt = true
         log.byaw_log.state = true
         log.byaw_log.info = 'Impact Detected. Hit \aFFFDA6FF'..group..'\aFFFFFFFF with Overlap: (\aFFFDA6FF'..overlap..'%\aFFFFFFFF).Jitter:'..ui.get(references.jitter[2]..'.')
+
         if console then
-            lua_log('Impact Detected. Hit \aFFFDA6FF'..group..'\aFFFFFFFF with Overlap: (\aFFFDA6FF'..overlap..'%\aFFFFFFFF).Jitter:'..ui.get(references.jitter[2]..'.'))
+
+        colorful_text:log(
+        { { 255, 59, 59 }, "[ mlc.yaw ] " },
+        { { 255, 255, 255}, "Impact Detected. Hit "},
+        { { 144, 255, 152}, group },
+        { { 255, 255, 255}, " with Overlap"},
+        { { 255, 253, 166}, " ("..tostring(overlap)..")%"},
+        { { 255, 255, 255}, " Jitter: "},
+        { { 255, 190, 190}, tostring(ui.get(references.jitter[2]))});
+        client.color_log(217, 217, 217, " ") -- this is needed to end the line
         end
     else
         hurt = false
@@ -1686,14 +1800,13 @@ local function run_command(cmd)
 end
 
 local function setup_command(cmd)
-
     local local_player = entity.get_local_player()
 	if not entity.is_alive(local_player) then return end
 
+    tickbase_nadle(cmd)
     fake_angle_handler(cmd)
     antiaim_handler(cmd)
     fakelag_handle(cmd)
-    tickbase_nadle(cmd)
 end
 
 local function paint_ui()
