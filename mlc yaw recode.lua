@@ -640,7 +640,7 @@ local mlc = {
         label = ui_new_label(TAB[1], TAB[2], ">> Roll Angle"),
         ---Main Multiselect
         mode = ui_new_multiselect(TAB[1], TAB[2], "Roll State On:",
-        "In Air", "On Ladders", "Low Stamina", "On Key", "On Slow Walk", "< Speed Velocity"),
+        "In Air", "On Ladders", "Low Stamina", "On Key", "On Slow Walk", "< Speed Velocity", "Manual Anti Aim"),
 
         ---Main Slider
         slider_adjust = ui_new_slider(TAB[1], TAB[2], "Roll", 0, 90, 50, true, ""),
@@ -798,6 +798,9 @@ local function handle_function_menu()
     local on_key = contains(ui_get(mlc.roll.mode), "On Key") and rollangle
     ui_set_visible(mlc.roll.key, on_key)
 
+    -->> On Manual
+    local on_manual = contains(ui_get(mlc.roll.mode), "Manual Anti Aim") and rollangle
+
     -----------------------------------------------
 
     -->> Fake Angle Section
@@ -879,6 +882,10 @@ local function Roll_Angle(cmd)
 
     local on_slowwalk = ui_get(references.slow_walk[2])
     local on_slowwalk_bind = contains(ui_get(mlc.roll.mode), "On Slow Walk")
+
+    local on_manual = contains(ui_get(mlc.roll.mode), "Manual Anti Aim")
+    local manual_bind = (ui_get(mlc.manual.manual_state) ~= 0)
+
     --Movement Libary
 
     local roll_bind = ui_get(mlc.roll.slider_roll)
@@ -888,6 +895,7 @@ local function Roll_Angle(cmd)
     local ladder_status = (on_ladders and on_ladders_bind)
     local hit_bind = (speed_slider)
     local stamina_status = (Stamina_bind and Stamina_slider) or 0
+    local manual_status = (on_manual and manual_bind)
 
     --Status libary
 
@@ -895,6 +903,7 @@ local function Roll_Angle(cmd)
     local should_roll   = rollangle and (
                         air_status == true or 
                         key_status == true or
+                        manual_status == true or
                         sw_status == true or
                         ((onhit >= 0.9 and Speed_bind) and Speed <= hit_bind) or
                         Stamina <= stamina_status or
@@ -902,6 +911,9 @@ local function Roll_Angle(cmd)
 
     local pUserCmd = g_pInput.vfptr.GetUserCmd(ffi.cast("uintptr_t", g_pInput), 0, cmd.command_number)
 
+    local on_manual = contains(ui_get(mlc.roll.mode), "Manual Anti Aim")
+    local manual_bind = (ui_get(mlc.manual.manual_state) ~= 0)
+    local manual = (on_manual and manual_bind)
     if should_roll then
 
         is_rolling = true
@@ -914,7 +926,7 @@ local function Roll_Angle(cmd)
             [68] = true
         })[wepaon_id] or false
         if is_grenade then return end
-        pUserCmd.viewangles.roll = roll_bind
+        pUserCmd.viewangles.roll = (manual and anti_aim.get_desync(1) < 0) or anti_aim.get_desync(1) > 0 and roll_bind or -roll_bind
 
     else
         is_rolling = false
@@ -980,9 +992,10 @@ local function fake_angle_handler(cmd)
     local reverse_num = 180
     if contains(ui_get(mlc.Exploit_mode_combobox), "\aB6B665FFValve Server Bypass") then return end
     local speed = velocity()
+    local is_exploit = ((ui_get(onshotkey) or ui.get(references.doubletap[2])))
     fake_angle = false
     if contains(ui_get(mlc.Exploit_mode_combobox), "Fake Angle") then
-        if inair() or stamina() < 79 or velocity() < ui_get(mlc.fakeangle.speed_slider) then return end
+        if inair() or stamina() < 79 or velocity() < ui_get(mlc.fakeangle.speed_slider) or is_exploit then return end
         if ui_get(references.doubletap[2]) then return end
             local pUserCmd = g_pInput.vfptr.GetUserCmd(ffi.cast("uintptr_t", g_pInput), 0, cmd.command_number)
             local local_player = entity_get_local_player()
@@ -1000,7 +1013,8 @@ local function fake_angle_handler(cmd)
             })[wepaon_id] or false
 
             -- +use to disable like any anti aim
-
+            if is_grenade then return end
+            if (cmd.in_attack == 1 or cmd.in_attack2 == 1) then return end
             if inair() then
                 return
             end
@@ -1376,6 +1390,7 @@ local function indicator()
         fake_yaw = {184, 187, 255},
         waiting = {255, 255, 255}
     }
+
     for i = 1, #a.theme_color, 1 do
         local state = is_rolling and theme_color.roll[i] or
                     (fake_angle and theme_color.fake_angle[i]) or
