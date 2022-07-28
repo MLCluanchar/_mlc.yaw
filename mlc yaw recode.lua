@@ -612,7 +612,8 @@ local mlc = {
 
     ---Main Exploits Parts
     Exploit_mode_combobox = ui_new_multiselect(TAB[1], TAB[2], "Enable Exploit",
-    "Roll Angle", "Fake Angle", "Fake Yaw", "\aB6B665FFValve Server Bypass"),
+    "Roll Angle", "Fake Angle", --[["LBY", "LBY Break",]]  --For beta user
+    "Fake Yaw", "\aB6B665FFValve Server Bypass"),
 
     --Indicator Parts
     indicators = ui_new_multiselect(TAB[1], TAB[2], 
@@ -651,6 +652,9 @@ local mlc = {
         ---Main Multiselect
         mode = ui_new_multiselect(TAB[1], TAB[2], "Roll State On:",
         "In Air", "On Ladders", "Low Stamina", "On Key", "On Slow Walk", "< Speed Velocity", "Manual Anti Aim"),
+
+        ---Antiaim mode selection
+        antiaim = ui_new_combobox(TAB[1], TAB[2], "Anti-Aim Mode", "Freestand", "Smart", "Jitter"),
 
         ---Main Slider
         slider_adjust = ui_new_slider(TAB[1], TAB[2], "Roll", 0, 90, 50, true, ""),
@@ -816,6 +820,7 @@ local function handle_function_menu()
     ui_set_visible(mlc.roll.mode, rollangle)
     ui_set_visible(mlc.roll.slider_adjust, rollangle)
     ui_set_visible(mlc.roll.slider_roll, rollangle)
+    ui_set_visible(mlc.roll.antiaim, rollangle)
 
     -->> Select mode
     local inair = contains(ui_get(mlc.roll.mode), "In Air") and rollangle
@@ -1143,7 +1148,7 @@ local function fake_yaw(cmd)
         local fakeduck = ui.reference("RAGE", "Other", "Duck peek assist")
         local slowwalking = ui.get(references.slow_walk[2])
         local crouch = (crouching() == false)
-        local state = (slowwalking and 1) or (inair() and (crouch and 5 or 4)) or (velocity() > 5 and 2 or 3)
+        local state = (slowwalking and 1) or ((inair() and (crouch and 5 or 6)) or (crouch and 4)) or (velocity() > 5 and 2 or 3)
 
         vars.default_yaw_left = ui_get(Antiaim_d[state].yaw_slider_l)
         vars.default_yaw_right = ui_get(Antiaim_d[state].yaw_slider_r)
@@ -1229,7 +1234,10 @@ local function freestanding()
     local fractionleft, fractionright = 0, 0
     local amountleft, amountright = 0, 0
 
-    for i = -45, 45, 5 do
+    local jitter = (ui_get(mlc.roll.antiaim) == "Jitter")
+    local freestand = (ui_get(mlc.roll.antiaim) == "Freestand") or jitter
+
+    for i = -70, 70, 5 do
         if i ~= 0 then
             local fwdx, fwdy, fwdz = vectorangle(0, cyaw + i, 0)
             fwdx, fwdy, fwdz = multiplyvalues(fwdx, fwdy, fwdz, 70)
@@ -1266,10 +1274,26 @@ local function freestanding()
     local averageleft, averageright = fractionleft / amountleft, fractionright / amountright
 
     if averageleft < averageright then
+        if freestand then
+            detections = "LEFT PEEKS"
+            vars.static_yaw = 7
+            vars.static_bodyyaw = 180
+        end
         return "left"
     elseif averageleft > averageright then
+        if freestand then
+            detections = "RIGHT PEEKS"
+            vars.static_yaw = -7
+            vars.static_bodyyaw = -180
+        end
         return "right"
     else
+        if jitter then
+            detections = "JITTERING"
+            local random = math.random(-1, 1)
+            vars.static_yaw = (random == -1 and -7) or (random == 0 and 0) or (random == 1 and 7)
+            vars.static_bodyyaw = (random == -1 and -180) or (random == 0 and 0) or (random == 1 and 180)
+        end
         return "none"
     end
 end
@@ -1339,8 +1363,10 @@ local function antiaim_handler(cmd)
     if avoid_stab then backstab() end
     local is_manual = ui_get(mlc.manual.enabled)
     if is_manual then manual() end
+
+    local smart = (ui_get(mlc.roll.antiaim) == "Smart")
     local is_static = is_roll or is_fakeangle
-    if is_static then detection() end
+    if is_static and smart then detection() end
     local is_jitter = not is_static and Jittering
     if is_jitter then fake_yaw() end
     --Priority Handling(legit aa >> manual >> is_static >> is_jitter)
@@ -1454,6 +1480,66 @@ local function tickbase_nadle(cmd)
             ui_set(dsreferences.ticks_user, 18)
         end
     end
+end
+
+local function lby_handler(cmd, status)
+
+    --something important is minified but i dont want to waste time on deleting to seperate those
+
+    if (entity.get_prop(entity.get_local_player(), "m_MoveType") or 0) == 9 then return end
+
+    local lean_bodyyaw = anti_aim.get_desync(2)
+
+    if lean_bodyyaw == nil then return end
+    
+    local lby_break = contains(ui_get(mlc.Exploit_mode_combobox), "LBY Break")
+
+    if lby_break then 
+
+    -------------Ignoring nades
+    local local_player = entity_get_local_player()
+    local my_weapon = entity.get_player_weapon(local_player)
+    local wepaon_id = bit_band(0xffff, entity_get_prop(my_weapon, "m_iItemDefinitionIndex"))
+    local is_grenade =
+        ({
+        [43] = true,
+        [44] = true,
+        [45] = true,
+        [46] = true,
+        [47] = true,
+        [48] = true,
+        [68] = true
+    })[wepaon_id] or false
+    
+    if is_grenade then
+        if cmd.in_attack == 1 or cmd.in_attack2 == 1 then return end
+    end
+
+    status = velocity() < 50 and 1 or 0
+
+    -----------------Ignore grenade end
+    goto ignore end
+
+    if math.abs(anti_aim.get_desync(2)) < 15 or cmd.chokedcommands == 0 then return end
+
+    ::ignore::
+
+
+    if ui.get(references.quick_peek[2]) then return end
+
+    cmd.in_forward = status
+
+    --handling standalone quick stop without using cmd
+
+
+    local w = client.key_state(0x57)
+    local s = client.key_state(0x53)
+    local space = client.key_state(0x20)
+
+    --local resgine = (velocity() < 50 and not w and not contains(ui.get(aa.combobox_antiaim), "LBY Breaker") and not s and not space and 1) or 0
+
+    --cmd.forwardmove = 0
+
 end
 
 local a = {
@@ -1588,6 +1674,7 @@ local manual = {
     left = 0,
     right = 0
 }
+
 local function manual_indicator()
     local m_state = ui_get(mlc.manual.manual_state)
     local r, g, b, a = ui_get(mlc.manual.indicator_color)
@@ -1923,6 +2010,8 @@ local function setup_command(cmd)
     local local_player = entity.get_local_player()
 	if not entity.is_alive(local_player) then return end
 
+    local lby = contains(ui_get(mlc.Exploit_mode_combobox), 'LBY')
+    lby_handler(cmd, lby)
     tickbase_nadle(cmd)
     fake_angle_handler(cmd)
     antiaim_handler(cmd)
