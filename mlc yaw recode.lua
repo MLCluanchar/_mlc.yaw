@@ -72,6 +72,55 @@ local g_pInput =
         ) + 1
     )[0]
 )
+
+
+local function vmt_entry(instance, index, type)
+	return ffi.cast(type, (ffi.cast("void***", instance)[0])[index])
+end
+
+local function vmt_bind(module, interface, index, typestring)
+	local instance = client.create_interface(module, interface) or error("invalid interface")
+	local success, typeof = pcall(ffi.typeof, typestring)
+	if not success then
+		error(typeof, 2)
+	end
+	local fnptr = vmt_entry(instance, index, typeof) or error("invalid vtable")
+	return function(...)
+		return fnptr(instance, ...)
+	end
+end
+
+local native_Surface_DrawSetColor 				= vmt_bind("vguimatsurface.dll", "VGUI_Surface031", 15, "void(__thiscall*)(void*, int, int, int, int)")
+local native_Surface_DrawLine 						= vmt_bind("vguimatsurface.dll", "VGUI_Surface031", 19, "void(__thiscall*)(void*, int, int, int, int)")
+
+
+local function draw_line(x0, y0, x1, y1, r, g, b, a, ctx)
+    if ctx == false then return end
+	native_Surface_DrawSetColor(r, g, b, a)
+	return native_Surface_DrawLine(x0, y0, x1, y1)
+end
+
+local function draw_circle_3d(x, y, z, radius, degrees, start_at, r, g, b, a , ctx, lineNum)
+    if ctx == false then return end
+	local accuracy = 10/10
+    local old = { x, y }
+
+	for rot=start_at, degrees+start_at, accuracy do
+		local rot_t = math.rad(rot)
+		local line_ = vector(radius * math.cos(rot_t) + x, radius * math.sin(rot_t) + y, z)
+        local current = { x, y }
+        current.x, current.y = renderer.world_to_screen(line_.x, line_.y, line_.z)
+		if current.x ~=nil and old.x ~= nil then
+			draw_line(current.x, current.y, old.x, old.y, r, g, b, a)
+            --m_render_engine.render_glow_line(current.x, current.y, old.x, old.y, r, g, b, a, r, g, b, 10)
+		end
+		old.x, old.y = current.x, current.y
+	end
+end
+
+
+---Vmt hooks for rendering 3d stuff
+
 ---Libarys
 local bit_band, bit_lshift, client_color_log, client_create_interface, client_delay_call, client_find_signature, client_key_state, client_reload_active_scripts, client_screen_size, client_set_event_callback, client_system_time, client_timestamp, client_unset_event_callback, database_read, database_write, entity_get_classname, entity_get_local_player, entity_get_origin, entity_get_player_name, entity_get_prop, entity_get_steam64, entity_is_alive, globals_framecount, globals_realtime, math_ceil, math_floor, math_max, math_min, panorama_loadstring, renderer_gradient, renderer_line, renderer_rectangle, table_concat, table_insert, table_remove, table_sort, ui_get, ui_is_menu_open, ui_mouse_position, ui_new_checkbox, ui_new_color_picker, ui_new_combobox, ui_new_slider, ui_set, ui_set_visible, setmetatable, pairs, error, globals_absoluteframetime, globals_curtime, globals_frametime, globals_maxplayers, globals_tickcount, globals_tickinterval, math_abs, type, pcall, renderer_circle_outline, renderer_load_rgba, renderer_measure_text, renderer_text, renderer_texture, tostring, ui_name, ui_new_button, ui_new_hotkey, ui_new_label, ui_new_listbox, ui_new_textbox, ui_reference, ui_set_callback, ui_update, unpack, tonumber = bit.band, bit.lshift, client.color_log, client.create_interface, client.delay_call, client.find_signature, client.key_state, client.reload_active_scripts, client.screen_size, client.set_event_callback, client.system_time, client.timestamp, client.unset_event_callback, database.read, database.write, entity.get_classname, entity.get_local_player, entity.get_origin, entity.get_player_name, entity.get_prop, entity.get_steam64, entity.is_alive, globals.framecount, globals.realtime, math.ceil, math.floor, math.max, math.min, panorama.loadstring, renderer.gradient, renderer.line, renderer.rectangle, table.concat, table.insert, table.remove, table.sort, ui.get, ui.is_menu_open, ui.mouse_position, ui.new_checkbox, ui.new_color_picker, ui.new_combobox, ui.new_slider, ui.set, ui.set_visible, setmetatable, pairs, error, globals.absoluteframetime, globals.curtime, globals.frametime, globals.maxplayers, globals.tickcount, globals.tickinterval, math.abs, type, pcall, renderer.circle_outline, renderer.load_rgba, renderer.measure_text, renderer.text, renderer.texture, tostring, ui.name, ui.new_button, ui.new_hotkey, ui.new_label, ui.new_listbox, ui.new_textbox, ui.reference, ui.set_callback, ui.update, unpack, tonumber
 local entity_get_local_player, entity_is_enemy, entity_get_all, entity_set_prop, entity_is_alive, entity_is_dormant, entity_get_player_name, entity_get_game_rules, entity_get_origin, entity_hitbox_position, entity_get_players, entity_get_prop = entity.get_local_player, entity.is_enemy,  entity.get_all, entity.set_prop, entity.is_alive, entity.is_dormant, entity.get_player_name, entity.get_game_rules, entity.get_origin, entity.hitbox_position, entity.get_players, entity.get_prop
@@ -387,6 +436,32 @@ local references = {
     third = ui.reference("Visuals", "Effects", "Force Third Person (alive)")
     -- end of menu references and menu creati
 }
+
+local function vanila_skeet_element(state)
+
+    ui_set_visible(references.pitch, state)
+    ui_set_visible(references.yaw_base, state)
+    ui_set_visible(references.yaw[1], state)
+    ui_set_visible(references.yaw[2], state)
+    ui_set_visible(references.jitter[1], state)
+    ui_set_visible(references.jitter[2], state)
+    ui_set_visible(references.body_yaw[1], state)
+    ui_set_visible(references.body_yaw[2], state)
+    ui_set_visible(references.fake_yaw_limit, state)
+    ui_set_visible(references.body_freestanding, state)
+    ------------------------------------------------------------
+    ------------------------------------------------------------
+    --Edge yaw
+    ui_set_visible(references.edge_yaw, state)
+    ------------------------------------------------------------
+    --Freestanding
+    ui_set_visible(references.freestanding[1], state)
+    ui_set_visible(references.freestanding[2], state)
+    ------------------------------------------------------------
+    --Enabled
+    --ui_set_visible(references.aa_enabled, state)
+end
+
 local onshot, onshotkey = ui.reference('aa', 'other', 'On shot anti-aim')
 local gamerules_ptr = client.find_signature("client.dll", "\x83\x3D\xCC\xCC\xCC\xCC\xCC\x74\x2A\xA1")
 local dsreferences = {
@@ -617,14 +692,25 @@ local mlc = {
 
     --Indicator Parts
     indicators = ui_new_multiselect(TAB[1], TAB[2], 
-    "Enable Indicators", "Status Netgraph", "Manual Indicator", "Debug"),
+    "Enable Indicators", "Status Netgraph", "Manual Indicator", "LBY Circle", "Unhide Antiaim menu"),
 
     custom_ind = { 
 
         enable = ui_new_checkbox(TAB[1], TAB[2], "Customized Indicator Panel", false),
 
+        
         panel_box = ui_new_multiselect(TAB[1], TAB[2], "\nCustomized Indicator Panel",
         "Enable name Tag", "Enable Slider Bar", "Enable State indicator", "Enable Keybinds"),
+
+        -->> Theme Color 
+        label_roll = ui_new_label(TAB[1], TAB[2], "Theme: Roll Angle"),
+        color_roll = ui_new_color_picker(TAB[1], TAB[2], "\nTheme Color for roll angle", 253, 162, 180, 255),
+
+        label_fake = ui_new_label(TAB[1], TAB[2], "Theme: Fake Angle"),
+        color_fake = ui_new_color_picker(TAB[1], TAB[2], "\nTheme Color for fake angle", 64, 224, 208, 255),
+
+        label_fakeyaw = ui_new_label(TAB[1], TAB[2], "Theme: Fake Yaw"),
+        color_fakeyaw = ui_new_color_picker(TAB[1], TAB[2], "\nTheme Color for fake yaw", 184, 187, 255, 255),
 
     },
 
@@ -643,7 +729,7 @@ local mlc = {
     misc_combobox = ui_new_multiselect(TAB[1], TAB[2], "Misc",
     "Debug Tools", "Old Animation", 
     "Legit Anti-aim on use","Legit Anti-aim on Backstab",
-    "Logs", "Logs Console"),
+    "Logs", "Logs Console", "Unhide Menu"),
     
     ---Roll Exploits Part
     roll = {
@@ -656,8 +742,10 @@ local mlc = {
         ---Antiaim mode selection
         antiaim = ui_new_combobox(TAB[1], TAB[2], "Anti-Aim Mode", "Freestand", "Smart", "Jitter"),
 
+        ---Freestand mode
+        freestand = ui_new_combobox(TAB[1], TAB[2], "Peek side", "Real", "Fake"),
+
         ---Main Slider
-        slider_adjust = ui_new_slider(TAB[1], TAB[2], "Roll", 0, 90, 50, true, ""),
         slider_roll = ui_new_slider(TAB[1], TAB[2], "Roll Angle", -90, 90, 50, true, "°"),
 
         ---On Hit
@@ -687,7 +775,6 @@ local mlc = {
         speed_slider = ui_new_slider(TAB[1], TAB[2], "Fake Angle Speed Trigger", 0, 250, 10, true, " "),
 
     },
-
 
     ---Fake Yaw Exploits Part
     fakeyaw = {
@@ -800,13 +887,23 @@ end
 
 ---Init Fake yaw menu elements
 
-local function handle_function_menu()
+local function set_shutdownvisible()
+    vanila_skeet_element(true)
+end
 
+local function handle_function_menu()
     -->> Indicator Section
     local Indicator = contains(ui_get(mlc.indicators), "Status Netgraph")
     local Advance = ui_get(mlc.custom_ind.enable)
     ui_set_visible(mlc.custom_ind.enable, Indicator)
     ui_set_visible(mlc.custom_ind.panel_box, Indicator and Advance)
+
+    ui_set_visible(mlc.custom_ind.label_roll, Advance)
+    ui_set_visible(mlc.custom_ind.color_roll, Advance)
+    ui_set_visible(mlc.custom_ind.label_fake, Advance)
+    ui_set_visible(mlc.custom_ind.color_fake, Advance)
+    ui_set_visible(mlc.custom_ind.label_fakeyaw, Advance)
+    ui_set_visible(mlc.custom_ind.color_fakeyaw, Advance)
 
     -->> Name tag section
     local NameTag = contains(ui_get(mlc.custom_ind.panel_box), "Enable name Tag") and Indicator and Advance
@@ -818,7 +915,6 @@ local function handle_function_menu()
     local rollangle = contains(ui_get(mlc.Exploit_mode_combobox), "Roll Angle")
     ui_set_visible(mlc.roll.label, rollangle)
     ui_set_visible(mlc.roll.mode, rollangle)
-    ui_set_visible(mlc.roll.slider_adjust, rollangle)
     ui_set_visible(mlc.roll.slider_roll, rollangle)
     ui_set_visible(mlc.roll.antiaim, rollangle)
 
@@ -842,6 +938,9 @@ local function handle_function_menu()
     -->> On Manual
     local on_manual = contains(ui_get(mlc.roll.mode), "Manual Anti Aim") and rollangle
 
+    local jitter_r = (ui_get(mlc.roll.antiaim) == "Jitter")
+    local freestand = ((ui_get(mlc.roll.antiaim) == "Freestand") or jitter_r) and rollangle
+    ui_set_visible(mlc.roll.freestand, freestand)
     -----------------------------------------------
 
     -->> Fake Angle Section
@@ -901,7 +1000,8 @@ local function handle_function_menu()
         ui_set_visible(Antiaim_d[i].bodyyaw_slider, visible)
         ui_set_visible(Antiaim_d[i].fake_limit, visible)
     end
-
+    local unhide = contains(ui_get(mlc.misc_combobox), "Unhide Menu")
+    vanila_skeet_element(unhide)
     -->> Handle Manual Anti aim
     local state = not ui.get(mlc.manual.enabled) -- or (e == nil and menu_call == nil)
     multi_exec(ui.set_visible, {
@@ -1273,18 +1373,20 @@ local function freestanding()
 
     local averageleft, averageright = fractionleft / amountleft, fractionright / amountright
 
+    local fs = (ui_get(mlc.roll.freestand) == "Fake" and -1) or (ui_get(mlc.roll.freestand) == "Real" and 1)
+
     if averageleft < averageright then
         if freestand then
             detections = "LEFT PEEKS"
-            vars.static_yaw = 7
-            vars.static_bodyyaw = 180
+            vars.static_yaw = 7 * fs
+            vars.static_bodyyaw = 180 * fs
         end
         return "left"
     elseif averageleft > averageright then
         if freestand then
             detections = "RIGHT PEEKS"
-            vars.static_yaw = -7
-            vars.static_bodyyaw = -180
+            vars.static_yaw = -7 * fs
+            vars.static_bodyyaw = -180 * fs
         end
         return "right"
     else
@@ -1469,7 +1571,7 @@ end
 local function tickbase_nadle(cmd)
     local is_valve_ds = ffi.cast('bool*', dsreferences.gamerules[0] + 124)
     local is_valve_enable = contains(ui.get(mlc.Exploit_mode_combobox), "\aB6B665FFValve Server Bypass")
-
+    local is_fakeangle = contains(ui_get(mlc.Exploit_mode_combobox), "Fake Angle")
     if is_valve_ds ~= nil then
         if is_valve_enable then
             is_valve_ds[0] = 0
@@ -1477,7 +1579,7 @@ local function tickbase_nadle(cmd)
             ui_set(dsreferences.ticks_user, 7)
         else 
             dsreferences.is_valve_spoof = false
-            ui_set(dsreferences.ticks_user, 18)
+            ui_set(dsreferences.ticks_user, is_fakeangle and 18 or 16)
         end
     end
 end
@@ -1558,6 +1660,7 @@ local a = {
     manual_right = 0,
 }
 
+
 function lerp(start, vend, time)
 return start + (vend - start) * time end
 
@@ -1575,10 +1678,13 @@ local function indicator()
     end
     -->> On Hit Color handler
 
+    local r_roll, g_roll, b_roll, a_roll = ui_get(mlc.custom_ind.color_roll)
+    local r_fake, g_fake, b_fake, a_fake = ui_get(mlc.custom_ind.color_fake)
+    local r_fy, g_fy, b_fy, a_fy = ui_get(mlc.custom_ind.color_fakeyaw)
     local theme_color = {
-        roll = {253, 162, 180},
-        fake_angle = {64, 224, 208},
-        fake_yaw = {184, 187, 255},
+        roll = {r_roll, g_roll, b_roll},
+        fake_angle = {r_fake, g_fake, b_fake},
+        fake_yaw = {r_fy, g_fy, b_fy},
         waiting = {255, 255, 255}
     }
 
@@ -1633,7 +1739,7 @@ local function indicator()
     local slider_bar = (contains(ui_get(mlc.custom_ind.panel_box), "Enable Slider Bar") and advance) or (Indicator and not advance)
     local state_tag = (contains(ui_get(mlc.custom_ind.panel_box), "Enable State indicator") and advance) or (Indicator and not advance)
     local keybinds = (contains(ui_get(mlc.custom_ind.panel_box), "Enable Keybinds") and advance) or (Indicator and not advance)
-
+    local lby_circle = (contains(ui_get(mlc.indicators), "LBY Circle")) 
 
     if custom_tag then
         local header = gradient_text(255, 255, 255, 255, a.header[1], a.header[2], a.header[3], 255, 
@@ -1667,7 +1773,18 @@ local function indicator()
         renderer_text(center_x + 31 - a.ind_offset[4] / 7.67 + third_exp, center_y + 44 + a.offset + a.speed_slider[2], 255, 255, 255, a.ind_a[4], "-",nil, "SP")
     end
     -->> Keybinds
-    
+   if lby_circle then
+        local _, fake_rot = entity.get_prop(entity.get_local_player(), "m_angEyeAngles")
+        local lby_rot = entity.get_prop(entity.get_local_player(), "m_flLowerBodyYawTarget")
+        local _, cam_rot = client.camera_angles()
+
+        local c3d = { degrees=50, start_at=head_rot, start_at2 = fake_rot, start_at3 = lby_rot }
+        local lp_pos = vector(entity.get_origin(entity.get_local_player()))
+
+        draw_circle_3d(lp_pos.x, lp_pos.y, lp_pos.z, 42+2*2, c3d.degrees, c3d.start_at2, 
+        a.theme_color[1], a.theme_color[2], a.theme_color[3], 255)
+   end
+
 end
 
 local manual = {
@@ -1989,6 +2106,7 @@ local function pre_render()
 end
 
 local function shutdown()
+    set_shutdownvisible()
     local is_valve_ds = ffi.cast('bool*', dsreferences.gamerules[0] + 124)
     if dsreferences.is_valve_spoof == true then 
         is_valve_ds[0] = 0
@@ -2036,6 +2154,7 @@ end
 
 local disable = true
 handle_function_menu()
+vanila_skeet_element(true)
 handle_menu2(false)
 local function initialize()
     client.set_event_callback('bullet_impact', bullet_impact)
