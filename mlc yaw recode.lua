@@ -506,18 +506,12 @@ local m_render_engine = (function()
 		renderer_circle_outline(c + g, d + f - g, h, i, j, n + 50, g, 90, 0.25, 2)
 		renderer_circle_outline(c + e - g, d + f - g, h, i, j, n + 50, g, 0, 0.25, 2)
 		renderer_rectangle(c + g, d + f - 2, e - g * 2, 2, h, i, j, n + 50)
-		for r = 1, q do
-			l(c - r, d - r, e + r * 2, f + r * 2, g, h, i, j, q - r)
-		end
 	end;
 	local s, t, u, v = 17, 17, 17, 80;
 	a.render_container = function(c, d, e, f, h, i, j, k, w)
 		renderer.blur(c, d, e, f, 100, 100)
 		b(c, d, e, f, m, s, t, u, v)
 		p(c, d, e, f, m, h, i, j, k, o)
-		if w then
-			w(c + m, d + m, e - m * 2, f - m * 2)
-		end
 	end;
 	a.render_glow_line = function(c, d, x, y, h, i, j, k, z, A, B, q)
 		local C = vector(c, d, 0)
@@ -661,7 +655,7 @@ local function export_config()
         end
     end
 
-    clipboard.set(json.stringify(settings), "base64")
+    clipboard.set(json.stringify(settings))
 
 end
 
@@ -681,18 +675,77 @@ local function import_config()
 end
 ---Export/Import Configs
 
+
+local function generate_antiaim()
+    for i = 1, #AA_S do
+        Antiaim[i] = {
+            yaw_left = ui_new_slider( TAB[1], TAB[2], "Yaw +/-" ..AA_S[i], -180, 180, 15, true, d),
+            yaw_right = ui_new_slider( TAB[1], TAB[2], "\nYaw +/-" ..AA_S[i], -180, 180, 15, true, d),
+
+            jitter_left = ui_new_slider( TAB[1], TAB[2], "Yaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, d),
+            jitter_right = ui_new_slider( TAB[1], TAB[2], "\nYaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, d), 
+
+            bodyyaw_left = ui_new_slider( TAB[1], TAB[2], "Body Yaw +/-" ..AA_S[i], -180, 180, 15, true, d),
+            bodyyaw_right = ui_new_slider( TAB[1], TAB[2], "\nBody Yaw +/-" ..AA_S[i], -180, 180, 15, true, d),
+
+            fake_limit_left = ui_new_slider( TAB[1], TAB[2], "Fake Limit +/-" ..AA_S[i], 0, 60, 15, true, d),
+            fake_limit_right = ui_new_slider( TAB[1], TAB[2], "\nFake Limit" ..AA_S[i], 0, 60, 15, true, d),
+        }
+    end
+
+    
+    for i = 1 , #AA_S2 do
+        Antiaim_d[i] = {
+            yaw_slider_l = ui_new_slider( TAB[1], TAB[2], "Yaw >" ..AA_S2[i], -180, 180, 0, true, d),
+            yaw_slider_r = ui_new_slider( TAB[1], TAB[2], "\nYaw +/- " ..AA_S2[i], -180, 180, 0, true, d),
+
+            yaw_jitter = ui_new_combobox(TAB[1], TAB[2], "Yaw Jitter >"..AA_S2[i], "Center", "Offset"),
+
+            yaw_jitter_slider = ui_new_slider( TAB[1], TAB[2], "\nYaw Jitter " ..AA_S2[i], -180, 180, 40, true, d),
+
+            body_yaw = ui_new_combobox(TAB[1], TAB[2], "Body yaw >"..AA_S2[i].."", "Jitter", "Static"),
+
+            bodyyaw_slider = ui_new_slider( TAB[1], TAB[2], "\nBody Yaw slider " ..AA_S2[i], -180, 180, 0, true, d),
+
+            fake_limit = ui_new_slider( TAB[1], TAB[2], "Fake Limit >" ..AA_S2[i], 0, 60, 59, true, d),
+        }
+    end
+
+end
+
 local mlc = {
 
     label = ui_new_label(TAB[1], TAB[2], ">> mlc.yaw"),
 
-    ---Main Exploits Parts
+    -->> Main Exploits Parts
     Exploit_mode_combobox = ui_new_multiselect(TAB[1], TAB[2], "Enable Exploit",
     "Roll Angle", "Fake Angle", --[["LBY", "LBY Break",]]  --For beta user
     "Fake Yaw", "\aB6B665FFValve Server Bypass"),
 
-    --Indicator Parts
+    -->> Additional Antiaim Parts
+    extra_antiaim = ui_new_multiselect(TAB[1], TAB[2], "Enable Extra Antiaim",
+    "Legit Anti-aim on use","Legit Anti-aim on Backstab", "Dynamic Edge Yaw", "Dynamic Freestand",
+    "Unhide Menu"),
+
+    dynamic = {
+
+        -->> Edge yaw
+        edge_yaw = ui_new_multiselect(TAB[1], TAB[2], "Edge Yaw Disablers",
+        "In Air", "Slow Walk", "Crouch"),
+
+        edgeyaw_key = ui_new_hotkey(TAB[1], TAB[2], "\nEdge Yaw Key", true),
+
+        -->> Freestanding
+        freestanding = ui_new_multiselect(TAB[1], TAB[2], "Freestanding Disablers",
+        "In Air", "Slow Walk", "Crouch"),
+
+        freestanding_key = ui_new_hotkey(TAB[1], TAB[2], "\nFreestanding Key", true),
+
+    },
+
+    -->> Indicator Parts
     indicators = ui_new_multiselect(TAB[1], TAB[2], 
-    "Enable Indicators", "Status Netgraph", "Manual Indicator", "LBY Circle", "Unhide Antiaim menu"),
+    "Enable Indicators", "Status Netgraph", "Manual Indicator", "LBY Circle"),
 
     custom_ind = { 
 
@@ -716,20 +769,18 @@ local mlc = {
 
     tag = {
 
-
         enabled = ui_new_checkbox(TAB[1], TAB[2], "Enable Costum tag"),
-    
+
         label = ui_new_label(TAB[1], TAB[2], "Custom lua tag"),
-    
+
         name = ui_new_textbox(TAB[1], TAB[2], "   "),
-    
+
     },
 
-    --Misc Parts
+    -->> Misc Parts
     misc_combobox = ui_new_multiselect(TAB[1], TAB[2], "Misc",
     "Debug Tools", "Old Animation", 
-    "Legit Anti-aim on use","Legit Anti-aim on Backstab",
-    "Logs", "Logs Console", "Unhide Menu"),
+    "Logs", "Logs Console"),
     
     ---Roll Exploits Part
     roll = {
@@ -797,6 +848,7 @@ local mlc = {
     manual = {
         enabled = ui_new_checkbox(TAB[1], TAB[3], "Enable manual anti-aim"),
         indicator_color = ui_new_color_picker(TAB[1], TAB[3], "enable_manual_anti_aim", 130, 156, 212, 255),
+        freestand = ui_new_combobox(TAB[1], TAB[3], "Body yaw", "Static", "Jitter"),
         left_dir = ui_new_hotkey(TAB[1], TAB[3], "Left direction"),
         right_dir = ui_new_hotkey(TAB[1], TAB[3], "Right direction"),
         back_dir = ui_new_hotkey(TAB[1], TAB[3], "Backwards direction"),
@@ -806,48 +858,12 @@ local mlc = {
     },
 
     fakelag = {
-        limit = ui_new_slider(TAB[1], TAB[4], "Limit", 1, 16, 15, true, "")
+        limit = ui_new_slider(TAB[1], TAB[4], "Limit", 1, 16, 15, true, ""),
+        reset = ui_new_checkbox(TAB[1], TAB[4], "Reset fakelag on Shot")
     }
 
 }
 ---Main menu elements
-
-local function generate_antiaim()
-    for i = 1, #AA_S do
-        Antiaim[i] = {
-            yaw_left = ui_new_slider( TAB[1], TAB[2], "Yaw +/-" ..AA_S[i], -180, 180, 15, true, d),
-            yaw_right = ui_new_slider( TAB[1], TAB[2], "\nYaw +/-" ..AA_S[i], -180, 180, 15, true, d),
-
-            jitter_left = ui_new_slider( TAB[1], TAB[2], "Yaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, d),
-            jitter_right = ui_new_slider( TAB[1], TAB[2], "\nYaw Jitter +/-" ..AA_S[i], -180, 180, 15, true, d), 
-
-            bodyyaw_left = ui_new_slider( TAB[1], TAB[2], "Body Yaw +/-" ..AA_S[i], -180, 180, 15, true, d),
-            bodyyaw_right = ui_new_slider( TAB[1], TAB[2], "\nBody Yaw +/-" ..AA_S[i], -180, 180, 15, true, d),
-
-            fake_limit_left = ui_new_slider( TAB[1], TAB[2], "Fake Limit +/-" ..AA_S[i], 0, 60, 15, true, d),
-            fake_limit_right = ui_new_slider( TAB[1], TAB[2], "\nFake Limit" ..AA_S[i], 0, 60, 15, true, d),
-        }
-    end
-
-    
-    for i = 1 , #AA_S2 do
-        Antiaim_d[i] = {
-            yaw_slider_l = ui_new_slider( TAB[1], TAB[2], "Yaw >" ..AA_S2[i], -180, 180, 0, true, d),
-            yaw_slider_r = ui_new_slider( TAB[1], TAB[2], "\nYaw +/- " ..AA_S2[i], -180, 180, 0, true, d),
-
-            yaw_jitter = ui_new_combobox(TAB[1], TAB[2], "Yaw Jitter >"..AA_S2[i], "Center", "Offset"),
-
-            yaw_jitter_slider = ui_new_slider( TAB[1], TAB[2], "\nYaw Jitter " ..AA_S2[i], -180, 180, 40, true, d),
-
-            body_yaw = ui_new_combobox(TAB[1], TAB[2], "Body yaw >"..AA_S2[i].."", "Jitter", "Static"),
-
-            bodyyaw_slider = ui_new_slider( TAB[1], TAB[2], "\nBody Yaw slider " ..AA_S2[i], -180, 180, 0, true, d),
-
-            fake_limit = ui_new_slider( TAB[1], TAB[2], "Fake Limit >" ..AA_S2[i], 0, 60, 59, true, d),
-        }
-    end
-
-end
 
 generate_antiaim()
 
@@ -885,6 +901,7 @@ local function init_preset()
     ui_set(Antiaim[6].fake_limit_left,55) ui_set(Antiaim[6].fake_limit_right,59)
 end
 
+init_preset()
 ---Init Fake yaw menu elements
 
 local function set_shutdownvisible()
@@ -905,6 +922,18 @@ local function handle_function_menu()
     ui_set_visible(mlc.custom_ind.label_fakeyaw, Advance)
     ui_set_visible(mlc.custom_ind.color_fakeyaw, Advance)
 
+
+    -->> Extra Antiaim Section
+    local dynamic = #(ui_get(mlc.Exploit_mode_combobox)) > 0
+    local edgeyaw = contains(ui_get(mlc.extra_antiaim), "Dynamic Edge Yaw") and dynamic
+    local freestand = contains(ui_get(mlc.extra_antiaim), "Dynamic Freestand") and dynamic
+
+    ui_set_visible(mlc.extra_antiaim, dynamic)
+    ui_set_visible(mlc.dynamic.edge_yaw, edgeyaw)
+    ui_set_visible(mlc.dynamic.edgeyaw_key, edgeyaw)
+
+    ui_set_visible(mlc.dynamic.freestanding, freestand)
+    ui_set_visible(mlc.dynamic.freestanding_key, freestand)
     -->> Name tag section
     local NameTag = contains(ui_get(mlc.custom_ind.panel_box), "Enable name Tag") and Indicator and Advance
     ui_set_visible(mlc.tag.enabled, NameTag)
@@ -960,10 +989,6 @@ local function handle_function_menu()
     local default = ui_get(mlc.fakeyaw.enable) == "Default" and fakeyaw
     local is_hiding = ui_get(mlc.fakeyaw.hide_menu)
 
-    -->> Go for preset
-    if preset then init_preset() end
-
-
     ui_set_visible(mlc.fakeyaw.hide_menu, custom or default)
 
     -->> Go for custom
@@ -1000,11 +1025,11 @@ local function handle_function_menu()
         ui_set_visible(Antiaim_d[i].bodyyaw_slider, visible)
         ui_set_visible(Antiaim_d[i].fake_limit, visible)
     end
-    local unhide = contains(ui_get(mlc.misc_combobox), "Unhide Menu")
+    local unhide = contains(ui_get(mlc.extra_antiaim), "Unhide Menu")
     vanila_skeet_element(unhide)
     -->> Handle Manual Anti aim
     local state = not ui.get(mlc.manual.enabled) -- or (e == nil and menu_call == nil)
-    multi_exec(ui.set_visible, {
+    multi_exec(ui_set_visible, {
         [mlc.manual.indicator_color] = not state,
         [mlc.manual.manual_inactive_color] = not state,
         [mlc.manual.indicator_dist] = not state ,
@@ -1012,6 +1037,7 @@ local function handle_function_menu()
         [mlc.manual.right_dir] = not state,
         [mlc.manual.back_dir] = not state,
         [mlc.manual.manual_state] = not state,
+        [mlc.manual.freestand] = not state,
     })
     -->> Handle Fake lag
     ui_set_visible(references.fake_lag_limit, false)
@@ -1097,57 +1123,7 @@ local function Roll_Angle(cmd)
 
 end
 ---Rolling Functions
-local function detection()
 
-    local closest_fov           = 100000
-
-    local player_list           = entity.get_players( true )
-
-    local eye_pos               = vector( x, y, z )
-
-    x,y,z                       = client.camera_angles( )
-
-    local cam_angles            = vector( x, y, z )
-    
-    for i = 1 , #player_list do
-        player                  = player_list[ i ]
-        if not entity_is_dormant( player ) and entity_is_alive( player ) then
-            if is_enemy_peeking( player ) or is_local_peeking_enemy( player ) then
-                last_time_peeked        = globals_curtime( )
-                local enemy_head_pos    = vector( entity_hitbox_position( player, 0 ) )
-                local current_fov       = get_FOV( cam_angles,eye_pos, enemy_head_pos )
-                if current_fov < closest_fov then
-                    closest_fov         = current_fov
-                    needed_player       = player
-                end
-            end
-        end
-    end
-        detections = "DORMANCY"
-        local is_slowwalk = ui_get(references.slow_walk[2])
-    if needed_player ~= -1 then
-        if not entity_is_dormant( player ) and entity_is_alive( player ) and is_rolling == true and not is_slowwalk then
-            if ( ( is_enemy_peeking( player ) or is_local_peeking_enemy( player ) ) ) == true then
-                detections = "LEFT PEEKS"
-                vars.static_yaw = -7
-                vars.static_bodyyaw = -180
-            else
-                detections = "RIGHT PEEKS"
-                vars.static_yaw = 7
-                vars.static_bodyyaw = 180
-            end
-        elseif is_slowwalk and is_rolling == true then
-            detections = "SLOW WALK"
-            vars.static_yaw = 7
-            vars.static_bodyyaw = 180
-        end
-    end
-    if detections == "DORMANCY" then
-        --ui.set(slider_roll, anti_aim.get_desync(1) > 0 and ui.get(slider_adjust) or -(ui.get(slider_adjust)))
-    end
-end
-
---Roll Angle Anti Aim
 local num = 90
 local function fake_angle_handler(cmd)
     local reverse_num = 180
@@ -1213,6 +1189,17 @@ local function antiaim_yaw_jitter(a,b)
     return (desync < 0 and overlap > 0.6 and a or b)
 end
 
+local pre = {
+    yaw = {0, 0}, jitter = {0, 0}, bodyyaw = {0, 0}, fake_limit = {0, 0}
+}
+
+local function pre_set(yaw_1, yaw_2, jitter_1, jitter_2, body_yaw_1, body_yaw2, fake_1, fake_2)
+    pre.yaw[1] = yaw_1 pre.yaw[2] = yaw_2
+    pre.jitter[1] = jitter_1 pre.jitter[2] = jitter_2
+    pre.bodyyaw[1] = body_yaw_1 pre.bodyyaw[2] = body_yaw2
+    pre.fake_limit[1] = fake_1 pre.fake_limit[2] = fake_2
+end
+
 local function fake_yaw(cmd)
     local local_player = entity_get_local_player()
     local current_threat = client.current_threat()
@@ -1258,6 +1245,19 @@ local function fake_yaw(cmd)
         vars.Bodyyaw_slider = ui_get(Antiaim_d[state].bodyyaw_slider)
         vars.fake_limit = ui_get(Antiaim_d[state].fake_limit)
     end
+
+    if preset then
+        local state = (custom and (inair() and (height and 5 or 6)) or
+        (velocity() > 90 and (is_expoliting and 1 or 2)) or
+        (is_expoliting and 3 or 4))
+
+        if state == 1 then pre_set(-5, 12, 88, 88, 0, 0, 50, 59) end
+        if state == 2 then pre_set(7, 7, 50, 50, 0, 0, 55, 59) end
+        if state == 3 then pre_set(7, 7, 73, 73, 0, 0, 59, 59) end
+        if state == 4 then pre_set(5, 10, 70, 70, 0, 0, 55, 59)end
+        if state == 5 then pre_set(-5, 9, 59, 59, 0, 0, 55, 59)end
+        if state == 6 then pre_set(7, 12, 75, 75, 0, 0, 59, 59)end
+    end
 end
 
 ---Fake Yaw Anti Aim
@@ -1267,29 +1267,6 @@ local bind_system = {
     right = false,
     back = false,
 }
-
-local function manual()
-    ui_get(mlc.manual.left_dir, "On hotkey")
-    ui_get(mlc.manual.right_dir, "On hotkey")
-    ui_get(mlc.manual.back_dir, "On hotkey")
-
-    local m_state = ui_get(mlc.manual.manual_state)
-
-    local left_state, right_state, backward_state = ui_get(mlc.manual.left_dir), ui_get(mlc.manual.right_dir),ui_get(mlc.manual.back_dir)
-
-    if left_state == bind_system.left and right_state == bind_system.right and backward_state == bind_system.back then return end
-
-    bind_system.left, bind_system.right, bind_system.back = left_state, right_state, backward_state
-
-    if (left_state and m_state == 1) or (right_state and m_state == 2) or (backward_state and m_state == 3) then ui_set(mlc.manual.manual_state, 0) return end
-
-    if left_state and m_state ~= 1 then ui_set(mlc.manual.manual_state, 1) end
-
-    if right_state and m_state ~= 2 then ui_set(mlc.manual.manual_state, 2) end
-
-    if backward_state and m_state ~= 3 then ui_set(mlc.manual.manual_state, 3) end
-end
---Manual Anti Aim
 
 local pi = 3.14159265358979323846
 local function d2r(value)
@@ -1316,118 +1293,225 @@ local function multiplyvalues(x,y,z,val)
 	return x, y, z
 end
 
-local function freestanding()
-    local localp = entity.get_local_player()
-    if entity_get_prop(localp, "m_lifeState") ~= 0 then
+local antiaim_lib = {
+
+    manual = function()
+        ui_get(mlc.manual.left_dir, "On hotkey")
+        ui_get(mlc.manual.right_dir, "On hotkey")
+        ui_get(mlc.manual.back_dir, "On hotkey")
+    
+        local m_state = ui_get(mlc.manual.manual_state)
+    
+        local left_state, right_state, backward_state = ui_get(mlc.manual.left_dir), ui_get(mlc.manual.right_dir),ui_get(mlc.manual.back_dir)
+    
+        if left_state == bind_system.left and right_state == bind_system.right and backward_state == bind_system.back then return end
+    
+        bind_system.left, bind_system.right, bind_system.back = left_state, right_state, backward_state
+    
+        if (left_state and m_state == 1) or (right_state and m_state == 2) or (backward_state and m_state == 3) then ui_set(mlc.manual.manual_state, 0) return end
+    
+        if left_state and m_state ~= 1 then ui_set(mlc.manual.manual_state, 1) end
+    
+        if right_state and m_state ~= 2 then ui_set(mlc.manual.manual_state, 2) end
+    
+        if backward_state and m_state ~= 3 then ui_set(mlc.manual.manual_state, 3) end
+    end,
+    -->> Manual Anti Aim
+
+    inuse = function(e)
+        local weaponn = entity.get_player_weapon()
+        if weaponn ~= nil and entity.get_classname(weaponn) == "CC4" then
+            if e.in_attack == 1 then
+                e.in_attack = 0 
+                e.in_use = 1
+            end
+        else
+            if e.chokedcommands == 0 then
+                e.in_use = 0
+            end
+        end
+    end,
+    -->> Legit Antiaim
+
+    backstab = function()
+        local enemies = entity.get_players(true)
+        local local_origin = vector(entity.get_origin(entity.get_local_player()))
+        local is_near = false
+        for i = 1, #enemies do
+            local enemy_origin = vector(entity.get_origin(enemies[i]))
+            local distance = local_origin:dist(enemy_origin)
+            local weapon = entity.get_player_weapon(enemies[i])
+            local class = entity_get_classname(weapon) --we get enemy's weapon here
+            if distance < 128 and class == "CKnife" then return true end
+        end
         return false
-     --we are dead who cares
-    end
+    end,
+    -->> Anti backstab
 
-    --ui.set(references.body_yaw[1], "Static")
-
-    local eyepos_x, eyepos_y, eyepos_z = entity_get_prop(localp, "m_vecAbsOrigin")
-    local offsetx, offsety, offsetz = entity_get_prop(localp, "m_vecViewOffset")
-    eyepos_z = eyepos_z + offsetz
-    local lowestfrac = 1
-    local dir = false
-    local cpitch, cyaw = client.camera_angles()
-    local fractionleft, fractionright = 0, 0
-    local amountleft, amountright = 0, 0
-
-    local jitter = (ui_get(mlc.roll.antiaim) == "Jitter")
-    local freestand = (ui_get(mlc.roll.antiaim) == "Freestand") or jitter
-
-    for i = -70, 70, 5 do
-        if i ~= 0 then
-            local fwdx, fwdy, fwdz = vectorangle(0, cyaw + i, 0)
-            fwdx, fwdy, fwdz = multiplyvalues(fwdx, fwdy, fwdz, 70)
-            --debug drawing if u want to play with the values
-
-            local fraction =
-                client.trace_line(
-                localp,
-                eyepos_x,
-                eyepos_y,
-                eyepos_z,
-                eyepos_x + fwdx,
-                eyepos_y + fwdy,
-                eyepos_z + fwdz
-            )
-            local outx, outy = renderer.world_to_screen(eyepos_x + fwdx, eyepos_y + fwdy, eyepos_z + fwdz)
-            if fraction < 1 then
-
-                  --renderer.rectangle(outx - 2, outy - 2, 4, 4, 0, 255, 0, 255)
-            else
-                --renderer.rectangle(outx - 2, outy - 2, 4, 4, 255, 255, 255, 255)
-
+    freestanding = function()
+        local localp = entity.get_local_player()
+        if entity_get_prop(localp, "m_lifeState") ~= 0 then
+            return false
+         --we are dead who cares
+        end
+    
+        --ui.set(references.body_yaw[1], "Static")
+    
+        local eyepos_x, eyepos_y, eyepos_z = entity_get_prop(localp, "m_vecAbsOrigin")
+        local offsetx, offsety, offsetz = entity_get_prop(localp, "m_vecViewOffset")
+        eyepos_z = eyepos_z + offsetz
+        local lowestfrac = 1
+        local dir = false
+        local cpitch, cyaw = client.camera_angles()
+        local fractionleft, fractionright = 0, 0
+        local amountleft, amountright = 0, 0
+    
+        local jitter = (ui_get(mlc.roll.antiaim) == "Jitter")
+        local freestand = (ui_get(mlc.roll.antiaim) == "Freestand") or jitter
+    
+        for i = -70, 70, 5 do
+            if i ~= 0 then
+                local fwdx, fwdy, fwdz = vectorangle(0, cyaw + i, 0)
+                fwdx, fwdy, fwdz = multiplyvalues(fwdx, fwdy, fwdz, 70)
+                --debug drawing if u want to play with the values
+    
+                local fraction =
+                    client.trace_line(
+                    localp,
+                    eyepos_x,
+                    eyepos_y,
+                    eyepos_z,
+                    eyepos_x + fwdx,
+                    eyepos_y + fwdy,
+                    eyepos_z + fwdz
+                )
+                local outx, outy = renderer.world_to_screen(eyepos_x + fwdx, eyepos_y + fwdy, eyepos_z + fwdz)
+                if fraction < 1 then
+    
+                      --renderer.rectangle(outx - 2, outy - 2, 4, 4, 0, 255, 0, 255)
+                else
+                    --renderer.rectangle(outx - 2, outy - 2, 4, 4, 255, 255, 255, 255)
+    
+                end
+                if i > 0 then
+                    fractionleft = fractionleft + fraction
+                    amountleft = amountleft + 1
+                else
+                    fractionright = fractionright + fraction
+                    amountright = amountright + 1
+                end
             end
-            if i > 0 then
-                fractionleft = fractionleft + fraction
-                amountleft = amountleft + 1
-            else
-                fractionright = fractionright + fraction
-                amountright = amountright + 1
+        end
+    
+        local averageleft, averageright = fractionleft / amountleft, fractionright / amountright
+    
+        local fs = (ui_get(mlc.roll.freestand) == "Fake" and -1) or (ui_get(mlc.roll.freestand) == "Real" and 1)
+    
+        if averageleft < averageright then
+            if freestand then
+                detections = "LEFT PEEKS"
+                vars.static_yaw = 7 * fs
+                vars.static_bodyyaw = 180 * fs
+            end
+            return "left"
+        elseif averageleft > averageright then
+            if freestand then
+                detections = "RIGHT PEEKS"
+                vars.static_yaw = -7 * fs
+                vars.static_bodyyaw = -180 * fs
+            end
+            return "right"
+        else
+            if jitter then
+                detections = "JITTERING"
+                local random = math.random(-1, 1)
+                vars.static_yaw = (random == -1 and -7) or (random == 0 and 0) or (random == 1 and 7)
+                vars.static_bodyyaw = (random == -1 and -180) or (random == 0 and 0) or (random == 1 and 180)
+            end
+            return "none"
+        end
+    end,
+    -->> Roll Antiaim function #1
+
+    detection = function()
+
+        local closest_fov           = 100000
+    
+        local player_list           = entity.get_players( true )
+    
+        local eye_pos               = vector( x, y, z )
+    
+        x,y,z                       = client.camera_angles( )
+    
+        local cam_angles            = vector( x, y, z )
+        
+        for i = 1 , #player_list do
+            player                  = player_list[ i ]
+            if not entity_is_dormant( player ) and entity_is_alive( player ) then
+                if is_enemy_peeking( player ) or is_local_peeking_enemy( player ) then
+                    last_time_peeked        = globals_curtime( )
+                    local enemy_head_pos    = vector( entity_hitbox_position( player, 0 ) )
+                    local current_fov       = get_FOV( cam_angles,eye_pos, enemy_head_pos )
+                    if current_fov < closest_fov then
+                        closest_fov         = current_fov
+                        needed_player       = player
+                    end
+                end
             end
         end
-    end
+            detections = "DORMANCY"
+            local is_slowwalk = ui_get(references.slow_walk[2])
+        if needed_player ~= -1 then
+            if not entity_is_dormant( player ) and entity_is_alive( player ) and is_rolling == true and not is_slowwalk then
+                if ( ( is_enemy_peeking( player ) or is_local_peeking_enemy( player ) ) ) == true then
+                    detections = "LEFT PEEKS"
+                    vars.static_yaw = -7
+                    vars.static_bodyyaw = -180
+                else
+                    detections = "RIGHT PEEKS"
+                    vars.static_yaw = 7
+                    vars.static_bodyyaw = 180
+                end
+            elseif is_slowwalk and is_rolling == true then
+                detections = "SLOW WALK"
+                vars.static_yaw = 7
+                vars.static_bodyyaw = 180
+            end
+        end
+        if detections == "DORMANCY" then
+            --ui.set(slider_roll, anti_aim.get_desync(1) > 0 and ui.get(slider_adjust) or -(ui.get(slider_adjust)))
+        end
+    end,
+    -->> Roll Antiaim function #2
 
-    local averageleft, averageright = fractionleft / amountleft, fractionright / amountright
+    dynamic = function()
+        local is_edgeyaw = contains(ui_get(mlc.extra_antiaim), "Dynamic Edge Yaw")
+        local is_freestand = contains(ui_get(mlc.extra_antiaim), "Dynamic Freestand")
+        if is_edgeyaw then
+            local is_slowwalk_condition = ui_get(references.slow_walk[2]) and contains(ui_get(mlc.dynamic.edge_yaw), "Slow Walk")
+            local is_inair_condition = inair() and contains(ui_get(mlc.dynamic.edge_yaw), "In Air")
+            local is_crouching_condition = not crouching() and contains(ui_get(mlc.dynamic.edge_yaw), "Crouch")
+            local key_condition = (ui_get(mlc.dynamic.edgeyaw_key))
+            local should_edgeyaw = ((is_slowwalk_condition or is_inair_condition or is_crouching_condition))
 
-    local fs = (ui_get(mlc.roll.freestand) == "Fake" and -1) or (ui_get(mlc.roll.freestand) == "Real" and 1)
+            ui_set(references.edge_yaw, (key_condition and (not should_edgeyaw)) and true or false)
+        end
 
-    if averageleft < averageright then
-        if freestand then
-            detections = "LEFT PEEKS"
-            vars.static_yaw = 7 * fs
-            vars.static_bodyyaw = 180 * fs
-        end
-        return "left"
-    elseif averageleft > averageright then
-        if freestand then
-            detections = "RIGHT PEEKS"
-            vars.static_yaw = -7 * fs
-            vars.static_bodyyaw = -180 * fs
-        end
-        return "right"
-    else
-        if jitter then
-            detections = "JITTERING"
-            local random = math.random(-1, 1)
-            vars.static_yaw = (random == -1 and -7) or (random == 0 and 0) or (random == 1 and 7)
-            vars.static_bodyyaw = (random == -1 and -180) or (random == 0 and 0) or (random == 1 and 180)
-        end
-        return "none"
-    end
-end
+        if is_freestand then
+            local is_slowwalk_condition = ui_get(references.slow_walk[2]) and contains(ui_get(mlc.dynamic.freestanding), "Slow Walk")
+            local is_inair_condition = inair() and contains(ui_get(mlc.dynamic.freestanding), "In Air")
+            local is_crouching_condition = not crouching() and contains(ui_get(mlc.dynamic.freestanding), "Crouch")
+            local key_condition = (ui_get(mlc.dynamic.freestanding_key))
+            local should_freestand = ((is_slowwalk_condition or is_inair_condition or is_crouching_condition))
 
-local function inuse(e)
-    local weaponn = entity.get_player_weapon()
-    if weaponn ~= nil and entity.get_classname(weaponn) == "CC4" then
-        if e.in_attack == 1 then
-            e.in_attack = 0 
-            e.in_use = 1
+            ui_set(references.freestanding[1], (key_condition and (not should_freestand) and "Default" or "-"))
+            ui_set(references.freestanding[2], "Always on")
         end
-    else
-        if e.chokedcommands == 0 then
-            e.in_use = 0
-        end
-    end
-end
+    end,
+}
+
 --Legit Anti Aim
 
-local function backstab()
-    local enemies = entity.get_players(true)
-    local local_origin = vector(entity.get_origin(entity.get_local_player()))
-    local is_near = false
-    for i = 1, #enemies do
-        local enemy_origin = vector(entity.get_origin(enemies[i]))
-        local distance = local_origin:dist(enemy_origin)
-        local weapon = entity.get_player_weapon(enemies[i])
-        local class = entity_get_classname(weapon) --we get enemy's weapon here
-        if distance < 128 and class == "CKnife" then return true end
-    end
-    return false
-end
 --Back Stab detections
 
 --Make Antiaim vars independent for dormancy mode
@@ -1459,22 +1543,24 @@ local function antiaim_handler(cmd)
     Jittering = is_rolling == false and fake_angle == false and contains(ui_get(mlc.Exploit_mode_combobox), "Fake Yaw")
     --Logic Handling
 
-    local is_legit = contains(ui_get(mlc.misc_combobox), "Legit Anti-aim on use")
-    if is_legit then inuse(cmd) end
-    local avoid_stab = contains(ui_get(mlc.misc_combobox), "Legit Anti-aim on Backstab")
-    if avoid_stab then backstab() end
+    local is_legit = contains(ui_get(mlc.extra_antiaim), "Legit Anti-aim on use")
+    if is_legit then antiaim_lib.inuse(cmd) end
+    local avoid_stab = contains(ui_get(mlc.extra_antiaim), "Legit Anti-aim on Backstab")
+    if avoid_stab then antiaim_lib.backstab() end
     local is_manual = ui_get(mlc.manual.enabled)
-    if is_manual then manual() end
+    if is_manual then antiaim_lib.manual() end
 
     local smart = (ui_get(mlc.roll.antiaim) == "Smart")
     local is_static = is_roll or is_fakeangle
-    if is_static and smart then detection() end
+    if is_static and smart then antiaim_lib.detection() end
     local is_jitter = not is_static and Jittering
     if is_jitter then fake_yaw() end
+    local is_dynamic = contains(ui_get(mlc.extra_antiaim), "Dynamic Edge Yaw") or contains(ui_get(mlc.extra_antiaim), "Dynamic Freestand")
+    if is_dynamic then antiaim_lib.dynamic() end
     --Priority Handling(legit aa >> manual >> is_static >> is_jitter)
 
-    local Legit_status = freestanding()
-    local is_legit_run = (client_key_state(0x45) and is_legit) or (avoid_stab and backstab())
+    local Legit_status = antiaim_lib.freestanding()
+    local is_legit_run = (client_key_state(0x45) and is_legit) or (avoid_stab and antiaim_lib.backstab())
     local Legit_Bodyyaw = (Legit_status == "left" and -180) or (Legit_status == "right" and 180)
     local legit_off = "Off"
 
@@ -1484,6 +1570,8 @@ local function antiaim_handler(cmd)
                         (ui_get(mlc.manual.manual_state) == 3 and "BACK") or "NONE"
     local manual_yaw = ((ui_get(mlc.manual.manual_state) == 2 and 90) or (ui_get(mlc.manual.manual_state) == 1 and -90) or (ui_get(mlc.manual.manual_state) == 0) and false)
     local manual_run = ((manual_info == "RIGHT") or (manual_info == "LEFT")) or false
+    local manual_byaw = (ui_get(mlc.manual.freestand))
+    local manual_static = (manual_byaw == "Static") and manual_run
     --Handling Manual Anti aim
 
     local dormancy = (detections == "DORMANCY" or detections == "WAITING")
@@ -1493,14 +1581,19 @@ local function antiaim_handler(cmd)
 
 
     local preset = ui_get(mlc.fakeyaw.enable) == "Preset"
-    local custom = ui_get(mlc.fakeyaw.enable) == "Costum" or preset
+    local custom = ui_get(mlc.fakeyaw.enable) == "Costum"
     local default = ui_get(mlc.fakeyaw.enable) == "Default"
 
     local jitter_yaw = antiaim_yaw_jitter(vars.yaw_left, vars.yaw_right)
     local jitter_jitter = antiaim_yaw_jitter(vars.jitter_left, vars.jitter_right)
     local jitter_fake_limit = antiaim_yaw_jitter(vars.fake_limit_left, vars.fake_limit_right)
     local jitter_bodyyaw = antiaim_yaw_jitter(vars.bodyyaw_left, vars.bodyyaw_right)
-
+    --Hnadling Jitter custom
+    local pre_yaw = antiaim_yaw_jitter(pre.yaw[1], pre.yaw[2])
+    local pre_jitter = antiaim_yaw_jitter(pre.jitter[1], pre.jitter[2])
+    local pre_fake_limit = antiaim_yaw_jitter(pre.fake_limit[1], pre.fake_limit[2])
+    local pre_bodyyaw = antiaim_yaw_jitter(pre.bodyyaw[1], pre.bodyyaw[2])
+    --Handling Preset Anti Aim
     local def_yaw = antiaim_yaw_jitter(vars.default_yaw_left, vars.default_yaw_right)
     local def_jitter_mode = vars.jitter_mode
     local def_jitter_slider = vars.Jitter_slider
@@ -1513,24 +1606,25 @@ local function antiaim_handler(cmd)
     antiaim.Yaw_base = "At targets"
     antiaim.Yaw_mode = (is_legit_run and legit_off) or "180"
     antiaim.Yaw =   (manual_run and manual_yaw) or (is_static and vars.static_yaw) or 
-                    (is_jitter and (custom and jitter_yaw) or (default and def_yaw)) or 
+                    (is_jitter and (custom and jitter_yaw) or (default and def_yaw) or (preset and pre_yaw)) or 
                     ui_get(references.yaw[2])
 
     antiaim.Jitter_Mode = (is_legit_run and legit_off) or (is_jitter and (default and def_jitter_mode)) or "Center"
 
-    antiaim.Yaw_Jitter = (is_static and static_jitter) or 
-                        (is_jitter and (custom and jitter_jitter) or (default and def_jitter_slider)) 
-                        or ui_get(references.jitter[2])
+    antiaim.Yaw_Jitter = (manual_static and 0) or (is_static and static_jitter) or 
+                        (is_jitter and (preset and pre_jitter) or (custom and jitter_jitter) or (default and def_jitter_slider))
+                        or ui_get(references.jitter[2]) 
 
-    antiaim.Bodyyaw_mode = (is_static and "Static") or 
-                            (is_jitter and (custom and "Jitter") or (default and def_bodyyaw))  
+    antiaim.Bodyyaw_mode = (manual_run and manual_byaw) or (is_static and "Static") or 
+                            (is_jitter and (custom and "Jitter") or (default and def_bodyyaw) or (preset and "Jitter"))
                             or ui_get(references.body_yaw[1])
-    antiaim.Bodyyaw = (is_legit_run and Legit_Bodyyaw) or (is_static and vars.static_bodyyaw) or 
-                        (is_jitter and (custom and jitter_bodyyaw) or (default and def_bodyyaw_s))
-                        or ui_get(references.body_yaw[2])
 
+    antiaim.Bodyyaw = (manual_static and vars.static_bodyyaw) or (is_legit_run and Legit_Bodyyaw) or (is_static and vars.static_bodyyaw) or 
+                        (is_jitter and (custom and jitter_bodyyaw) or (default and def_bodyyaw_s) or (preset and pre_bodyyaw))
+
+                        or ui_get(references.body_yaw[2])
     antiaim.Fake_Limit = (is_static and static_fake_limit) or 
-                        (is_jitter and (custom and jitter_fake_limit) or (default and def_fakelimit))
+                        (is_jitter and (custom and jitter_fake_limit) or (default and def_fakelimit) or (preset and pre_fake_limit))
                         or ui_get(references.fake_limit)
     --Configing Anti aim
 
@@ -1556,16 +1650,57 @@ local function antiaim_handler(cmd)
 
 end
 
+local afire = 0
+local time_to_shot = 0
+
+local function tts()
+    local local_player = entity.get_local_player()
+    if not entity_is_alive(local_player) then return end
+    
+    local local_player_weapon = entity.get_player_weapon(local_player)
+    local local_player = entity_get_local_player()
+
+    local cur = globals.curtime()
+    if cur < entity_get_prop(local_player_weapon, "m_flNextPrimaryAttack") then
+        time_to_shot = entity.get_prop(local_player_weapon, "m_flNextPrimaryAttack") - cur
+    else
+        time_to_shot = 0
+    end
+
+    return time_to_shot * 10
+end
+
+local function weapon_fire()
+    afire = 1
+end
+
+local function grenade_thrown(e)
+    if client.userid_to_entindex(e.userid) == entity.get_local_player() then
+		client.exec("slot2;slot1")
+	end
+end
+
 local function fakelag_handle(cmd)
-    local is_onshot = ((ui_get(onshotkey) --[[or ui.get(references.doubletap[2])]]    ))
+
+    if tts() < 1 then afire = 0 end
+
+    local is_onshot = ((ui_get(onshotkey) ))
     local is_valve_server = contains(ui_get(mlc.Exploit_mode_combobox), "\aB6B665FFValve Server Bypass")
     local is_fakeangle = contains(ui_get(mlc.Exploit_mode_combobox), "Fake Angle") and fake_angle
     local real_fakelag = (is_onshot and not ui_get(references.fakeduck[1]) and 1) or (is_fakeangle and 17) or
                         (is_valve_server and ((ui_get(mlc.fakelag.limit) > 6) and 6) or (ui_get(mlc.fakelag.limit))) or 
                         (ui_get(mlc.fakelag.limit) > ui.get(dsreferences.ticks_user) - 1 and ui.get(dsreferences.ticks_user) - 1
-                        or (ui_get(mlc.fakelag.limit))) or (ui_get(mlc.fakelag.limit))
+                        or (ui_get(mlc.fakelag.limit))) or (afire == 1 and 1) or (ui_get(mlc.fakelag.limit))
 
     ui_set(references.fake_lag_limit, real_fakelag)
+
+    local reset = ui_get(mlc.fakelag.reset)
+    if reset then
+        if afire == 1 or cmd.in_attack == 1 then 
+            cmd.allow_send_packet = (afire == 1 and true) or (cmd.in_attack == 1 and true) or false
+            cmd.no_choke = (afire == 1 and true) or (cmd.in_attack == 1 and true) or false
+        end
+    end
 end
 
 local function tickbase_nadle(cmd)
@@ -1646,7 +1781,7 @@ end
 
 local a = {
     header = {0, 0, 0},
-    speed_slider = {0, 0, 0},
+    speed_slider = {0, 0, 0, 0},
     theme_color = {0, 0, 0},
 
     ind_a = {0, 0, 0, 0},
@@ -1702,7 +1837,9 @@ local function indicator()
         a.speed_slider[1] = lerp(a.speed_slider[1], 255,globals_frametime() * 6)
         a.speed_slider[2] = lerp(a.speed_slider[2], 7,globals_frametime() * 6)
         a.speed_slider[3] = lerp(a.speed_slider[3], speed, globals_frametime() * 6)
+        a.speed_slider[4] = lerp(a.speed_slider[4], 255, globals_frametime() * 6)
         else if velocity() < 30 then
+            a.speed_slider[4] = lerp(a.speed_slider[4], 0, globals_frametime() * 6)
             a.speed_slider[1] = lerp(a.speed_slider[1], 0,globals_frametime() * 6)
             a.speed_slider[2] = lerp(a.speed_slider[2], 0,globals_frametime() * 6)
             a.speed_slider[3] = lerp(a.speed_slider[3], 0, globals_frametime() * 6)
@@ -1748,9 +1885,13 @@ local function indicator()
     end
     -->> Header text
 
+    local speed_text = (inair() and "AIR+") or (velocity() <= 250 and math.floor(velocity()) )
     if slider_bar then
-        m_render_engine.render_container(center_x + 2, center_y + 46, a.speed_slider[1] / 6, 5, 
+        m_render_engine.render_container(center_x + 2, center_y + 46, a.speed_slider[3] / 6, 5, 
         a.theme_color[1], a.theme_color[2], a.theme_color[3], 255)
+
+        renderer_text(center_x + a.speed_slider[3] / 6 + 2, center_y + 43, 
+        a.theme_color[1], a.theme_color[2], a.theme_color[3], a.speed_slider[4], "-", nil, speed_text)
     else
         a.speed_slider[2] = 0
     end
@@ -1907,7 +2048,6 @@ log.on_player_hurt = function(e)
             { { 255, 190, 190}, tostring(e.health)});
         client.color_log(217, 217, 217, " ") -- this is needed to end the line
 end
-local hurt = false
 
 log.local_got_hurt = function(e)
     local logs = contains(ui_get(mlc.misc_combobox), 'Logs')
@@ -2118,6 +2258,7 @@ local function handle_menu2(state)
     ui_set_visible(mlc.Exploit_mode_combobox, state)
     ui_set_visible(mlc.indicators, state)
     ui_set_visible(mlc.misc_combobox, state)
+    ui_set_visible(mlc.fakelag.reset, state)
 end
 
 local function run_command(cmd)
@@ -2125,15 +2266,17 @@ local function run_command(cmd)
 end
 
 local function setup_command(cmd)
+
+    tickbase_nadle(cmd)
+
     local local_player = entity.get_local_player()
 	if not entity.is_alive(local_player) then return end
 
-    local lby = contains(ui_get(mlc.Exploit_mode_combobox), 'LBY')
-    lby_handler(cmd, lby)
-    tickbase_nadle(cmd)
     fake_angle_handler(cmd)
     antiaim_handler(cmd)
     fakelag_handle(cmd)
+    local lby = contains(ui_get(mlc.Exploit_mode_combobox), 'LBY')
+    lby_handler(cmd, lby)
 end
 
 local function paint_ui()
@@ -2165,6 +2308,8 @@ local function initialize()
     client.set_event_callback("setup_command", setup_command)
     client.set_event_callback("paint_ui", paint_ui)
     client.set_event_callback("run_command", run_command)
+    client.set_event_callback("weapon_fire", weapon_fire)
+    client.set_event_callback("grenade_thrown", grenade_thrown)
     handle_menu2(true)
     disable = false
 end
