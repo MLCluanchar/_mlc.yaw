@@ -27,11 +27,9 @@ local lib = {
         local me = entity.get_local_player()
         local weapon = entity_get_player_weapon(me)
         local weapon_id = (entity_get_prop(weapon, "m_iItemDefinitionIndex"))
-        if weapon_id ~= nil then
-            return index.index_wpn[weapon_id]
-        else
-            return index.index_wpn[1]
-        end
+        local index = index.index_wpn[weapon_id]
+        if index == nil then return 1 end
+        return index
     end,
 
     is_key_down = function(element)
@@ -67,6 +65,43 @@ local lib = {
         end
         return false
     end,
+    
+    replace = function(select, target)
+        ui_set(select, target)
+    end,
+
+    fill_table = function(tbl, target)
+        if #ui_get(tbl) == 0 then
+            ui_set(tbl, target)
+        end
+    end,
+
+    config_import = function()
+        local settings = {}
+        local clipboard = require("gamesense/clipboard")
+    
+        for key, value in pairs(index.weapons) do
+            settings[tostring(value)] = {}
+            for k, v in pairs(configs[key]) do
+                settings[value][k] = ui_get(v)
+            end
+        end
+    
+        clipboard.set(json.stringify(settings))
+    end,
+
+    config_export = function()
+        local clipboard = require("gamesense/clipboard")
+        local settings = json.parse(clipboard.get())
+        for key, value in pairs(index.weapons) do
+            for k, v in pairs(configs[key]) do
+                local current = settings[value][k]
+                if (current ~= nil) then
+                    ui_set(v, current)
+                end
+            end
+        end
+    end
 
 }
 
@@ -78,9 +113,9 @@ local references = {
     target_hitbox = ui_reference(TAB[1], TAB[2], "Target hitbox"),
     multipoint = ui_reference(TAB[1], TAB[2], "Multi-point"),
     multipoint_scale = ui_reference(TAB[1], TAB[2], "Multi-point scale"),
-    prefer_safepoint = ui_reference(TAB[1], TAB[2], "Prefer safe point"),
+    prefer_safe_point = ui_reference(TAB[1], TAB[2], "Prefer safe point"),
     force_safepoint = ui_reference(TAB[1], TAB[2], "Force safe point"),
-    avoid_unsafe_hitbox = ui_reference(TAB[1], TAB[2], "Avoid unsafe hitboxes"),
+    unsafe = ui_reference(TAB[1], TAB[2], "Avoid unsafe hitboxes"),
     automatic_fire = ui_reference(TAB[1], TAB[2], "Automatic fire"),
     automatic_penetration = ui_reference(TAB[1], TAB[2], "Automatic penetration"),
     silent_aim = ui_reference(TAB[1], TAB[2], "Silent aim"),
@@ -111,8 +146,6 @@ local inti = {
 
     config_1 = function()
 
-        local target_selection = ui_new_combobox(TAB[3], TAB[4], "Target selection", {"Cycle", "Cycle (2x)", "Near crosshair", "Highest damage", "Best hit chance"})
-
         for i=1, #index.weapons do
 
             if not configs[i] then
@@ -121,6 +154,7 @@ local inti = {
 
             configs[i].current_labels = ui_new_label(TAB[3], TAB[4], "Current config: " .. index.weapons[i])
 
+            configs[i].target_selection = ui_new_combobox(TAB[3], TAB[4], "Target selection", {"Cycle", "Cycle (2x)", "Near crosshair", "Highest damage", "Best hit chance"})
             configs[i].target_hitbox = ui_new_multiselect(TAB[3], TAB[4], "Target hitbox", index.hitgroup)
 
             configs[i].enable_hitbox = ui_new_checkbox(TAB[3], TAB[4], font .."Hitbox Override")
@@ -159,6 +193,10 @@ local inti = {
             if not configs[i] then
                 configs[i] = {}
             end
+
+            --------------------------------------------------------------------------------
+            -- Inserting In Air / Double tap hitbox
+            --------------------------------------------------------------------------------
 
             configs[i].hitbox_air = ui_new_multiselect(TAB[3], TAB[4],  font .."Hitbox [In Air]", index.hitgroup)
             configs[i].hitbox_dt = ui_new_multiselect(TAB[3], TAB[4],  font .."Hitbox [DT]", index.hitgroup)
@@ -202,8 +240,17 @@ local inti = {
                 configs[i] = {}
             end
 
+            --------------------------------------------------------------------------------
+            -- Inserting In Air / Double tap Min damage
+            --------------------------------------------------------------------------------
+
             configs[i].multipoint_air = ui_new_slider(TAB[3], TAB[4],  font .."Multi-point scale [In Air]", 0, 100, 50, true, "%", 1, {"Off"})
             configs[i].multipoint_dt = ui_new_slider(TAB[3], TAB[4],  font .."Multi-point scale [DT]", 0, 100, 50, true, "%", 1, {"Off"})
+
+
+            --------------------------------------------------------------------------------
+            -- Inserting None-Override utils
+            --------------------------------------------------------------------------------
 
             configs[i].prefer_safe_point = ui_new_checkbox(TAB[3], TAB[4], "Prefer safe point")
             configs[i].unsafe = ui_new_multiselect(TAB[3], TAB[4], "Avoid unsafe hitboxes", index.hitgroup)
@@ -215,7 +262,6 @@ local inti = {
             configs[i].hitchance = ui_new_slider(TAB[3], TAB[4], "Minimum Hitchance", 0, 100, 50, true, "%", 1, {"Off"})
             configs[i].enable_hitchance = ui_new_checkbox(TAB[3], TAB[4],  font .."Hitchance Override")
             configs[i].custom_hitchance = ui_new_multiselect(TAB[3], TAB[4], "\nHitchance Option", {"On-key", "On-key 2", "In-Air", "Double tap", "No Scope"})
-
 
         end
 
@@ -249,6 +295,10 @@ local inti = {
             if not configs[i] then
                 configs[i] = {}
             end
+
+            --------------------------------------------------------------------------------
+            -- Inserting In Air / No Scoped / Double tap hitchance
+            --------------------------------------------------------------------------------
 
             configs[i].hitchance_air = ui_new_slider(TAB[3], TAB[4],  font .."Hitchance [In Air]", 0, 100, 50, true, "%", 1, {"Off"})   
             configs[i].dt_hitchance = ui_new_slider(TAB[3], TAB[4],  font .."Hitchance [DT]", 0, 100, 50, true, "%", 1, {"Off"})     
@@ -291,10 +341,13 @@ local inti = {
                 configs[i] = {}
             end
 
+            --------------------------------------------------------------------------------
+            -- Inserting Visible / In Air / Double tap Min damage
+            --------------------------------------------------------------------------------
+
             configs[i].vis_min_damage = ui_new_slider(TAB[3], TAB[4],  font .."Damage [Visible]", 0, 126, 20, true, nil, 1, index.index_dmg)
             configs[i].air_min_damage = ui_new_slider(TAB[3], TAB[4],  font .."Hitchance [In Air]", 0, 126, 20, true, nil, 1, index.index_dmg)
             configs[i].dt_min_damage = ui_new_slider(TAB[3], TAB[4],  font .."Damage [DT]", 0, 126, 20, true, nil, 1, index.index_dmg)
-
         end
 
     end,
@@ -313,6 +366,14 @@ local visible = {
 
     config = function()
         for i=1, #index.weapons do
+
+            -->> Fixing Hitboxes
+            lib.fill_table(configs[i].target_hitbox, "Head")
+            lib.fill_table(configs[i].hitbox_ovr, "Head")
+            lib.fill_table(configs[i].hitbox_ovr2, "Head")
+            lib.fill_table(configs[i].hitbox_air, "Head")
+            lib.fill_table(configs[i].hitbox_dt, "Head")
+
             local current = (index.weapons[i] == ui_get(main.tab))
             if index.weapons[i] == ui_get(main.tab) then tab = i end
             ui_set_visible(configs[i].current_labels, current)
@@ -325,6 +386,7 @@ local visible = {
             ui_set_visible(configs[i].silent_aim, current)
 
             -->> Default utils
+            ui_set_visible(configs[i].target_selection, current)
             ui_set_visible(configs[i].target_hitbox, current)
             ui_set_visible(configs[i].multipoint_scale, current)
             ui_set_visible(configs[i].hitchance, current)
@@ -400,6 +462,7 @@ local visible = {
             ui_set_visible(configs[i].air_min_damage, cd_air)
             ui_set_visible(configs[i].dt_min_damage, cd_dt)
 
+
         end
     end,
     
@@ -437,7 +500,7 @@ local visible = {
 
 local fetch = {
 
-    hitbox = function(tab)
+    target_hitbox = function(tab)
         local hitbox = ui_get(configs[tab].enable_hitbox)
         local hitbox_ovr = lib.contains(ui_get(configs[tab].custom_hitbox), "On-key") and hitbox
         local hitbox_ovr2 = lib.contains(ui_get(configs[tab].custom_hitbox), "On-key 2") and hitbox
@@ -445,36 +508,37 @@ local fetch = {
         local hitbox_dt = lib.contains(ui_get(configs[tab].custom_hitbox), "Double tap") and hitbox
         local hitbox_o = ui_get(configs[tab].target_hitbox)
 
+
         if hitbox_ovr and lib.is_key_down(keybinds.hitbox_key) then
-            return hitbox_ovr
+            return ui_get(configs[tab].hitbox_ovr)
         elseif hitbox_ovr2 and lib.is_key_down(keybinds.hitbox_key2) then
-            return hitbox_ovr2
+            return ui_get(configs[tab].hitbox_ovr2)
         elseif hitbox_air and lib.is_in_air() then
-            return hitbox_air
+            return ui_get(configs[tab].hitbox_air)
         elseif hitbox_dt and lib.is_double_tapping() then
-            return hitbox_dt
+            return ui_get(configs[tab].hitbox_dt)
         else
             return hitbox_o
         end
     end,
 
-    multipoint = function(tab)
+    multipoint_scale = function(tab)
         local multipoint = ui_get(configs[tab].enable_multipoint)
         local multipoint_ovr = lib.contains(ui_get(configs[tab].custom_multipoint), "On-key") and multipoint
         local multipoint_ovr2 = lib.contains(ui_get(configs[tab].custom_multipoint), "On-key 2") and multipoint
         local multipoint_vis = lib.contains(ui_get(configs[tab].custom_multipoint), "Visible") and multipoint
         local multipoint_air = lib.contains(ui_get(configs[tab].custom_multipoint), "In-Air") and multipoint
         local multipoint_dt = lib.contains(ui_get(configs[tab].custom_multipoint), "Double tap") and multipoint
-        local multipoint_o = ui_get(configs[tab].multipoint)
+        local multipoint_o = ui_get(configs[tab].multipoint_scale)
 
         if multipoint_ovr and lib.is_key_down(keybinds.multipoint_key) then
-            return multipoint_ovr
+            return ui_get(configs[tab].multipoint_ovr)
         elseif multipoint_ovr2 and lib.is_key_down(keybinds.multipoint_key2) then
-            return multipoint_ovr2
+            return ui_get(configs[tab].multipoint_ovr2)
         elseif multipoint_air and lib.is_in_air() then
-            return multipoint_air
+            return ui_get(configs[tab].multipoint_air)
         elseif multipoint_dt and lib.is_double_tapping() then
-            return multipoint_dt
+            return ui_get(configs[tab].dt_multipoint)
         else
             return multipoint_o
         end
@@ -491,7 +555,7 @@ local fetch = {
 
 
         if hitchance_ovr and lib.is_key_down(keybinds.hitchance_key) then
-            return hitchance_ovr
+            return ui_get(configs[tab].hitbox_ovr2)
         elseif hitchance_ovr2 and lib.is_key_down(keybinds.hitchance_key2) then
             return hitchance_ovr2
         elseif hitchance_air and lib.is_in_air() then
@@ -514,25 +578,79 @@ local fetch = {
         local damage_o = ui_get(configs[tab].min_damage)
 
         if damage_ovr and lib.is_key_down(keybinds.damage_key) then
-            return damage_ovr
+            return ui_get(configs[tab].ovr_min_damage)
         elseif damage_ovr2 and lib.is_key_down(keybinds.damage_key2) then
-            return damage_ovr2
+            return ui_get(configs[tab].ovr_min_damage2)
         elseif damage_air and lib.is_in_air() then
-            return damage_air
+            return ui_get(configs[tab].air_min_damage)
         elseif damage_dt and lib.is_double_tapping() then
-            return damage_dt
+            return ui_get(configs[tab].dt_min_damage)
         elseif damage_nc and not lib.is_scoped() then
-            return damage_nc
+            return ui_get(configs[tab].nc_min_damage)
         else
             return damage_o
         end
-    end
+    end,
+
+    multipoint = function(tab)
+        return ui_get(configs[tab].multipoint)
+    end,
+
+    target_selection = function(tab)
+        return ui_get(configs[tab].target_selection)
+    end,
+
+    prefer_safe_point = function(tab)
+        return ui_get(configs[tab].prefer_safe_point)
+    end,
+
+    unsafe = function(tab)
+        return ui_get(configs[tab].unsafe)
+    end,
+
+    automatic_fire = function(tab)
+        return ui_get(configs[tab].automatic_fire)
+    end,
+
+    automatic_penetration = function(tab)
+        return ui_get(configs[tab].automatic_penetration)
+    end,
+
+    automatic_scope = function(tab)
+        return ui_get(configs[tab].automatic_scope)
+    end,
+
+    silent_aim = function(tab)
+        return ui_get(configs[tab].silent_aim)
+    end,
 }
 
 inti.main()
 inti.config_1()
 
+local fetch = function()
+    local i = lib.get_weapon()
+
+    ui_set(references.target_selection, fetch.target_selection(i))
+    ui_set(references.target_hitbox, fetch.target_hitbox(i))
+    ui_set(references.prefer_safe_point, fetch.prefer_safe_point(i))
+    ui_set(references.unsafe, fetch.unsafe(i))
+    ui_set(references.automatic_fire, fetch.automatic_fire(i))
+    ui_set(references.automatic_penetration, fetch.automatic_penetration(i))
+    ui_set(references.automatic_scope, fetch.automatic_scope(i))
+    ui_set(references.silent_aim, fetch.silent_aim(i))
+    ui_set(references.multipoint, fetch.multipoint(i))
+    ui_set(references.multipoint_scale, fetch.multipoint_scale(i))
+    ui_set(references.mindamage, fetch.damage(i))
+    ui_set(references.hitchance, fetch.hitchance(i))
+end
+
+
+local import = ui_new_button(TAB[3], TAB[4], "Import Config", lib.config_import)
+local export = ui_new_button(TAB[3], TAB[4], "Export Config", lib.config_export)
+
 client.set_event_callback("paint", function()
     visible.config()
     visible.keybinds()
+    fetch()
 end)
