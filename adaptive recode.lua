@@ -481,11 +481,14 @@ local fetch = {
     end,
 
     hitchance = function(tab)
-        local hitchance = ui_get(configs[tab].hitchance)
-        local hitchance_ovr = ui_get(configs[tab].hitchance_ovr)
-        local hitchance_ovr2 = ui_get(configs[tab].hitchance_ovr2)
-        local hitchance_air = ui_get(configs[tab].hitchance_air)
-        local hitchance_dt = ui_get(configs[tab].hitchance_dt)
+        local hitchance = ui_get(configs[tab].enable_hitchance)
+        local hitchance_ovr = lib.contains(ui_get(configs[tab].custom_hitchance), "On-key") and hitchance
+        local hitchance_ovr2 = lib.contains(ui_get(configs[tab].custom_hitchance), "On-key 2") and hitchance
+        local hitchance_air = lib.contains(ui_get(configs[tab].custom_hitchance), "In-Air") and hitchance
+        local hitchance_dt = lib.contains(ui_get(configs[tab].custom_hitchance), "Double tap") and hitchance
+
+        local hitchance_o = ui_get(configs[tab].hitchance)
+
 
         if hitchance_ovr and lib.is_key_down(keybinds.hitchance_key) then
             return hitchance_ovr
@@ -496,17 +499,17 @@ local fetch = {
         elseif hitchance_dt and lib.is_double_tapping() then
             return hitchance_dt
         else
-            return hitchance
+            return hitchance_o
         end
     end,
 
-    damage = function()
-        local tab = lib.get_weapon()
+    damage = function(tab)
         local damage = ui_get(configs[tab].enable_damage)
         --{"On-key", "On-key 2", "Visible", "In-Air", "No Scope", "Double tap"}
         local damage_ovr = lib.contains(ui_get(configs[tab].custom_damage), "On-key") and damage
         local damage_ovr2 = lib.contains(ui_get(configs[tab].custom_damage), "On-key 2") and damage
         local damage_air = lib.contains(ui_get(configs[tab].custom_damage), "In-air") and damage
+        local damage_nc = lib.contains(ui_get(configs[tab].custom_damage), "No Scope") and damage
         local damage_dt = lib.contains(ui_get(configs[tab].custom_damage), "Double tap") and damage
         local damage_o = ui_get(configs[tab].min_damage)
 
@@ -518,6 +521,8 @@ local fetch = {
             return damage_air
         elseif damage_dt and lib.is_double_tapping() then
             return damage_dt
+        elseif damage_nc and not lib.is_scoped() then
+            return damage_nc
         else
             return damage_o
         end
@@ -528,7 +533,6 @@ inti.main()
 inti.config_1()
 
 client.set_event_callback("paint", function()
-    print(fetch.damage())
     visible.config()
     visible.keybinds()
 end)
