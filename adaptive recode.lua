@@ -56,8 +56,9 @@ local lib = {
         return false
     end,
 
-    enemy_visible = function(idx)
+    enemy_visible = function()
         for i=0, 8 do
+            local idx = client.current_threat()
             local cx, cy, cz = entity_hitbox_position(idx, i)
             if client_visible(cx, cy, cz) then
                 return true
@@ -539,6 +540,8 @@ local fetch = {
             return ui_get(configs[tab].multipoint_air)
         elseif multipoint_dt and lib.is_double_tapping() then
             return ui_get(configs[tab].dt_multipoint)
+        elseif multipoint_vis and lib.enemy_visible() then
+            return ui_get(configs[tab].multipoint_vis)
         else
             return multipoint_o
         end
@@ -555,13 +558,13 @@ local fetch = {
 
 
         if hitchance_ovr and lib.is_key_down(keybinds.hitchance_key) then
-            return ui_get(configs[tab].hitbox_ovr2)
+            return ui_get(configs[tab].hitchance_ovr)
         elseif hitchance_ovr2 and lib.is_key_down(keybinds.hitchance_key2) then
-            return hitchance_ovr2
+            return ui_get(configs[tab].hitchance_ovr2)
         elseif hitchance_air and lib.is_in_air() then
-            return hitchance_air
+            return ui_get(configs[tab].hitchance_air)
         elseif hitchance_dt and lib.is_double_tapping() then
-            return hitchance_dt
+            return ui_get(configs[tab].hitchance_dt)
         else
             return hitchance_o
         end
