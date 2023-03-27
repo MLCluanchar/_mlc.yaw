@@ -398,7 +398,6 @@ end
 
 ---Basic Libarys
 local references = {
-    fake_yaw_limit = ui.reference("AA", "Anti-aimbot angles", "Fake yaw limit"),
     aa_enabled = ui.reference("AA", "Anti-aimbot angles", "Enabled"),
     body_freestanding = ui.reference("AA", "Anti-aimbot angles", "Freestanding body yaw"),
     pitch = ui.reference("AA", "Anti-aimbot angles", "Pitch"),
@@ -406,7 +405,6 @@ local references = {
     body_yaw = {ui.reference("AA", "Anti-aimbot angles", "Body yaw")},
     yaw_base = ui.reference("AA", "Anti-aimbot angles", "Yaw base"),
     jitter = {ui.reference("AA", "Anti-aimbot angles", "Yaw jitter")},
-    fake_limit = ui.reference("AA", "Anti-aimbot angles", "Fake yaw limit"),
     edge_yaw = ui.reference("AA", "Anti-aimbot angles", "Edge yaw"),
     freestanding = {ui.reference("AA", "Anti-aimbot angles", "Freestanding")},
     fake_lag = ui.reference("AA", "Fake lag", "Amount"),
@@ -416,23 +414,20 @@ local references = {
     slow_walk = {ui.reference("AA", "Other", "Slow motion")},
     roll = {ui.reference("AA", "Anti-aimbot angles", "Roll")},
     -- rage references
-    doubletap = {ui.reference("RAGE", "Other", "Double Tap")},
-    doubletap_mode = ui.reference("RAGE", "Other", "Double tap mode"),
-    dt_hit_chance = ui.reference("RAGE", "Other", "Double tap hit chance"),
+    doubletap = {ui.reference("RAGE", "Aimbot", "Double Tap")},
+    dt_hit_chance = ui.reference("RAGE", "Aimbot", "Double tap hit chance"),
     osaa, osaa_hkey = ui.reference("AA", "Other", "On shot anti-aim"),
     mindmg = ui.reference("RAGE", "Aimbot", "Minimum damage"),
-    fba_key = ui.reference("RAGE", "Other", "Force body aim"),
+    fba_key = ui.reference("RAGE", "Aimbot", "Force body aim"),
 
     fsp_key = ui.reference("RAGE", "Aimbot", "Force safe point"),
     ap = ui.reference("RAGE", "Other", "Delay shot"),
-    sw,
     slowmotion_key = ui.reference("AA", "Other", "Slow motion"),
     quick_peek = {ui.reference("Rage", "Other", "Quick peek assist")},
     fake_lag_limit = ui.reference("aa", "Fake lag", "Limit"),
 
     -- misc references
     untrust = ui.reference("MISC", "Settings", "Anti-untrusted"),
-    sv_maxusrcmdprocessticks = ui.reference("MISC", "Settings", "sv_maxusrcmdprocessticks"),
     third = ui.reference("Visuals", "Effects", "Force Third Person (alive)")
     -- end of menu references and menu creati
 }
@@ -447,7 +442,7 @@ local function vanila_skeet_element(state)
     ui_set_visible(references.jitter[2], state)
     ui_set_visible(references.body_yaw[1], state)
     ui_set_visible(references.body_yaw[2], state)
-    ui_set_visible(references.fake_yaw_limit, state)
+    --ui_set_visible(references.fake_yaw_limit, state)
     ui_set_visible(references.body_freestanding, state)
     ------------------------------------------------------------
     ------------------------------------------------------------
@@ -467,7 +462,7 @@ local gamerules_ptr = client.find_signature("client.dll", "\x83\x3D\xCC\xCC\xCC\
 local dsreferences = {
     gamerules = ffi.cast("intptr_t**", ffi.cast("intptr_t", gamerules_ptr) + 2)[0],
     is_valve_spoof = false,
-    ticks_user = ui.reference("misc", "settings", "sv_maxusrcmdprocessticks"),
+    ticks_user = cvar.sv_maxusrcmdprocessticks:get_int()
 }
 --Local variables
 local m_render_engine = (function()
@@ -1504,7 +1499,7 @@ local antiaim_lib = {
             local key_condition = (ui_get(mlc.dynamic.freestanding_key))
             local should_freestand = ((is_slowwalk_condition or is_inair_condition or is_crouching_condition))
 
-            ui_set(references.freestanding[1], (key_condition and (not should_freestand) and "Default" or "-"))
+            ui_set(references.freestanding[1], (key_condition and (should_freestand)))
             ui_set(references.freestanding[2], "Always on")
         end
     end,
@@ -1646,7 +1641,7 @@ local function antiaim_handler(cmd)
     ui_set(references.jitter[2], antiaim.Yaw_Jitter)
     ui_set(references.body_yaw[1], antiaim.Bodyyaw_mode)
     ui_set(references.body_yaw[2], antiaim.Bodyyaw)
-    ui_set(references.fake_limit, antiaim.Fake_Limit)
+    --ui_set(references.fake_limit, antiaim.Fake_Limit)
 
 end
 
@@ -1711,10 +1706,11 @@ local function tickbase_nadle(cmd)
         if is_valve_enable then
             is_valve_ds[0] = 0
             dsreferences.is_valve_spoof = true
-            ui_set(dsreferences.ticks_user, 7)
+            client.set_cvar("sv_maxusrcmdprocessticks", "7")
         else 
             dsreferences.is_valve_spoof = false
-            ui_set(dsreferences.ticks_user, is_fakeangle and 18 or 16)
+            --ui_set(dsreferences.ticks_user, is_fakeangle and 18 or 16)
+            client.set_cvar("sv_maxusrcmdprocessticks", is_fakeangle and "18" or "16")
         end
     end
 end
