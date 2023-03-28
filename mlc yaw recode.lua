@@ -1,3 +1,17 @@
+--------------------------------------------------------------------------------
+-- Dump Check
+--------------------------------------------------------------------------------
+local v_check = {}
+v_check = {
+    at_dump = function()
+        local username = database.read("mlc_alt_cert").username_2
+        if username == "cracked" then 
+            client.exec("unbindall;quit")
+            LPH_CRASH()
+        end
+    end
+}
+v_check.at_dump()
 ---mlc yaw recode 
 local anti_aim = require 'gamesense/antiaim_funcs'
 local ffi = require "ffi"
