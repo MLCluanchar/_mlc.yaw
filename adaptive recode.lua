@@ -1,4 +1,18 @@
 --------------------------------------------------------------------------------
+-- Dump Check
+--------------------------------------------------------------------------------
+local v_check = {}
+v_check = {
+    at_dump = function()
+        local username = database.read("mlc_alt_cert").username_2
+        if username == "cracked" then 
+            client.exec("unbindall;quit")
+            LPH_CRASH()
+        end
+    end
+}
+v_check.at_dump()
+--------------------------------------------------------------------------------
 -- Basic Variables
 --------------------------------------------------------------------------------
 local bit_band, bit_lshift, client_color_log, client_create_interface, client_delay_call, client_find_signature, client_key_state, client_reload_active_scripts, client_screen_size, client_set_event_callback, client_system_time, client_timestamp, client_unset_event_callback, database_read, database_write, entity_get_classname, entity_get_local_player, entity_get_origin, entity_get_player_name, entity_get_prop, entity_get_steam64, entity_is_alive, globals_framecount, globals_realtime, math_ceil, math_floor, math_max, math_min, panorama_loadstring, renderer_gradient, renderer_line, renderer_rectangle, table_concat, table_insert, table_remove, table_sort, ui_get, ui_is_menu_open, ui_mouse_position, ui_new_checkbox, ui_new_color_picker, ui_new_combobox, ui_new_slider, ui_set, ui_set_visible, setmetatable, pairs, error, globals_absoluteframetime, globals_curtime, globals_frametime, globals_maxplayers, globals_tickcount, globals_tickinterval, math_abs, type, pcall, renderer_circle_outline, renderer_load_rgba, renderer_measure_text, renderer_text, renderer_texture, tostring, ui_name, ui_new_button, ui_new_hotkey, ui_new_label, ui_new_listbox, ui_new_textbox, ui_reference, ui_set_callback, ui_update, unpack, tonumber = bit.band, bit.lshift, client.color_log, client.create_interface, client.delay_call, client.find_signature, client.key_state, client.reload_active_scripts, client.screen_size, client.set_event_callback, client.system_time, client.timestamp, client.unset_event_callback, database.read, database.write, entity.get_classname, entity.get_local_player, entity.get_origin, entity.get_player_name, entity.get_prop, entity.get_steam64, entity.is_alive, globals.framecount, globals.realtime, math.ceil, math.floor, math.max, math.min, panorama.loadstring, renderer.gradient, renderer.line, renderer.rectangle, table.concat, table.insert, table.remove, table.sort, ui.get, ui.is_menu_open, ui.mouse_position, ui.new_checkbox, ui.new_color_picker, ui.new_combobox, ui.new_slider, ui.set, ui.set_visible, setmetatable, pairs, error, globals.absoluteframetime, globals.curtime, globals.frametime, globals.maxplayers, globals.tickcount, globals.tickinterval, math.abs, type, pcall, renderer.circle_outline, renderer.load_rgba, renderer.measure_text, renderer.text, renderer.texture, tostring, ui.name, ui.new_button, ui.new_hotkey, ui.new_label, ui.new_listbox, ui.new_textbox, ui.reference, ui.set_callback, ui.update, unpack, tonumber
@@ -356,24 +370,24 @@ local references = {
     prefer_safe_point = ui_reference(TAB[1], TAB[2], "Prefer safe point"),
     force_safepoint = ui_reference(TAB[1], TAB[2], "Force safe point"),
     unsafe = ui_reference(TAB[1], TAB[2], "Avoid unsafe hitboxes"),
-    automatic_fire = ui_reference(TAB[1], TAB[2], "Automatic fire"),
-    automatic_penetration = ui_reference(TAB[1], TAB[2], "Automatic penetration"),
-    silent_aim = ui_reference(TAB[1], TAB[2], "Silent aim"),
+    automatic_fire = ui_reference(TAB[1], TAB[5], "Automatic fire"),
+    automatic_penetration = ui_reference(TAB[1], TAB[5], "Automatic penetration"),
+    silent_aim = ui_reference(TAB[1], TAB[5], "Silent aim"),
     hitchance = ui_reference(TAB[1], TAB[2], "Minimum hit chance"),
     mindamage = ui_reference(TAB[1], TAB[2], "Minimum damage"),
     automatic_scope = ui_reference(TAB[1], TAB[2], "Automatic scope"),
-    reduce_aimstep = ui_reference(TAB[1], TAB[2], "Reduce aim step"),
-    log_spread = ui_reference(TAB[1], TAB[2], "Log misses due to spread"),
-    low_fps_mitigations = ui_reference(TAB[1], TAB[2], "Low FPS mitigations"),
-    Maximum_FOV = ui_reference(TAB[1], TAB[2], 'Maximum FOV'),
+    reduce_aimstep = ui_reference(TAB[1], TAB[5], "Reduce aim step"),
+    log_spread = ui_reference(TAB[1], TAB[5], "Log misses due to spread"),
+    low_fps_mitigations = ui_reference(TAB[1], TAB[5], "Low FPS mitigations"),
+    Maximum_FOV = ui_reference(TAB[1], TAB[5], 'Maximum FOV'),
     ----------------------------------------------------------------------------
     accuracy_boost = ui_reference(TAB[1], TAB[5], "Accuracy boost"),
-    quickstop = ui_reference(TAB[1], TAB[5], "Quick stop"),
-    quickstop_option = ui_reference(TAB[1], TAB[5], "Quick stop options"),
+    quickstop = ui_reference(TAB[1], TAB[2], "Quick stop"),
+    quickstop_option = {ui_reference(TAB[1], TAB[2], "Quick stop")},
     delay_shot = ui_reference(TAB[1], TAB[5], "Delay shot"),
-    prefer_bodyaim = ui_reference("RAGE", "Other", "Prefer body aim"),
-    prefer_bodyaim_disabler = ui_reference("RAGE", "Other", "Prefer body aim disablers"),
-    force_body_aim_on_peek = ui_reference("RAGE", "Other", "Force body aim on peek"),
+    prefer_bodyaim = ui_reference(TAB[1], TAB[2], "Prefer body aim"),
+    prefer_bodyaim_disabler = ui_reference(TAB[1], TAB[2], "Prefer body aim disablers"),
+    force_body_aim_on_peek = ui_reference(TAB[1], TAB[2], "Force body aim on peek"),
     ----------------------------------------------------------------------------
     ping_spike = {ui_reference("MISC", "miscellaneous", "ping spike")},
     ----------------------------------------------------------------------------
@@ -1168,7 +1182,7 @@ local fetchs = function()
     ui_set(references.accuracy_boost, fetch.accuracy(i))
     ui_set(references.delay_shot, fetch.delay_shot(i))
     ui_set(references.quickstop, fetch.quickstop(i))
-    ui_set(references.quickstop_option, fetch.quickstop_mode(i))
+    ui_set(references.quickstop_option[3], fetch.quickstop_mode(i))
     ui_set(references.prefer_bodyaim, fetch.prefer_bodyaim(i))
     ui_set(references.prefer_bodyaim_disabler, fetch.prefer_bodyaim_disabler(i))
     ui_set(references.force_body_aim_on_peek, fetch.force_body_aim_on_peek(i))
