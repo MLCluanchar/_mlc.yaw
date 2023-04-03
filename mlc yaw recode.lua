@@ -1,17 +1,5 @@
---------------------------------------------------------------------------------
--- Dump Check
---------------------------------------------------------------------------------
-local v_check = {}
-v_check = {
-    at_dump = function()
-        local username = database.read("mlc_alt_cert").username_2
-        if username == "cracked" then 
-            client.exec("unbindall;quit")
-            LPH_CRASH()
-        end
-    end
-}
-v_check.at_dump()
+
+
 ---mlc yaw recode 
 local anti_aim = require 'gamesense/antiaim_funcs'
 local ffi = require "ffi"
@@ -650,7 +638,8 @@ local vars = {
     default_yaw_left = 0, default_yaw_right = 0,
     jitter_mode = "Center", Jitter_slider = 0,
     Bodyyaw_mode = "Jitter", Bodyyaw_slider = 0,
-    fake_limit = 0,
+    Bodyyaw_slider_add = 0,
+    fake_limit = 0, frequency = 0
 }
 
 local function export_config()
@@ -712,11 +701,12 @@ local function generate_antiaim()
 
             yaw_jitter_slider = ui_new_slider( TAB[1], TAB[2], "\nYaw Jitter " ..AA_S2[i], -180, 180, 40, true, d),
 
+            yaw_jitter_speed = ui_new_slider(TAB[1], TAB[2], "Jitter speed >"..AA_S2[i], 2, 10, 3, true),
+
             body_yaw = ui_new_combobox(TAB[1], TAB[2], "Body yaw >"..AA_S2[i].."", "Jitter", "Static"),
 
             bodyyaw_slider = ui_new_slider( TAB[1], TAB[2], "\nBody Yaw slider " ..AA_S2[i], -180, 180, 0, true, d),
-
-            fake_limit = ui_new_slider( TAB[1], TAB[2], "Fake Limit >" ..AA_S2[i], 0, 60, 59, true, d),
+            bodyyaw_slider_add = ui_new_slider(TAB[1], TAB[2], "\nBody Yaw slider add"..AA_S[i], -180, 180, 0, true, d)
         }
     end
 
@@ -1030,9 +1020,10 @@ local function handle_function_menu()
         ui_set_visible(Antiaim_d[i].yaw_slider_r, visible)
         ui_set_visible(Antiaim_d[i].yaw_jitter, visible)
         ui_set_visible(Antiaim_d[i].yaw_jitter_slider, visible)
+        ui_set_visible(Antiaim_d[i].yaw_jitter_speed, visible)
         ui_set_visible(Antiaim_d[i].body_yaw, visible)
         ui_set_visible(Antiaim_d[i].bodyyaw_slider, visible)
-        ui_set_visible(Antiaim_d[i].fake_limit, visible)
+        ui_set_visible(Antiaim_d[i].bodyyaw_slider_add, visible)
     end
     local unhide = contains(ui_get(mlc.extra_antiaim), "Unhide Menu")
     vanila_skeet_element(unhide)
@@ -1197,16 +1188,30 @@ local function antiaim_yaw_jitter(a,b)
     Jitter_Status = (overlap > 0.7 and "FAKE YAW +/-") or "OVERLAP-"
     return (desync < 0 and overlap > 0.6 and a or b)
 end
+local cache = {
+    last_tick = 0, jitter_increment = 0, switch = false,
+}
+local function antiaim_slow_jitter(speed, frequency)
+    local localplayer = entity.get_local_player()
+    local tickbase = entity_get_prop(localplayer, "m_nTickbase")
+    if tickbase - cache.last_tick >= frequency or cache.last_tick > tickbase then
+        cache.last_tick = tickbase
+        cache.jitter_increment = cache.jitter_increment + speed
+        cache.switch = not cache.switch 
+    end
+end
 
 local pre = {
-    yaw = {0, 0}, jitter = {0, 0}, bodyyaw = {0, 0}, fake_limit = {0, 0}
+    yaw = {0, 0}, jitter = {0, 0}, bodyyaw = {0, 0}, fake_limit = {0, 0}, frequency = 0, body_yaw = 0, yaw_offset = 0,
 }
 
-local function pre_set(yaw_1, yaw_2, jitter_1, jitter_2, body_yaw_1, body_yaw2, fake_1, fake_2)
+local function pre_set(yaw_1, yaw_2, jitter_1, jitter_2, body_yaw_1, body_yaw2, fake_1, fake_2, yaw_offset, body_yaw, frequency)
     pre.yaw[1] = yaw_1 pre.yaw[2] = yaw_2
     pre.jitter[1] = jitter_1 pre.jitter[2] = jitter_2
     pre.bodyyaw[1] = body_yaw_1 pre.bodyyaw[2] = body_yaw2
     pre.fake_limit[1] = fake_1 pre.fake_limit[2] = fake_2
+    pre.body_yaw = body_yaw pre.frequency = frequency
+    pre.yaw_offset = yaw_offset
 end
 
 local function fake_yaw(cmd)
@@ -1250,9 +1255,9 @@ local function fake_yaw(cmd)
         vars.default_yaw_right = ui_get(Antiaim_d[state].yaw_slider_r)
         vars.jitter_mode = ui_get(Antiaim_d[state].yaw_jitter)
         vars.Jitter_slider = ui_get(Antiaim_d[state].yaw_jitter_slider)
+        vars.frequency = ui_get(Antiaim_d[state].yaw_jitter_speed)
         vars.Bodyyaw_mode = ui_get(Antiaim_d[state].body_yaw)
         vars.Bodyyaw_slider = ui_get(Antiaim_d[state].bodyyaw_slider)
-        vars.fake_limit = ui_get(Antiaim_d[state].fake_limit)
     end
 
     if preset then
@@ -1260,12 +1265,13 @@ local function fake_yaw(cmd)
         (velocity() > 90 and (is_expoliting and 1 or 2)) or
         (is_expoliting and 3 or 4))
 
-        if state == 1 then pre_set(-5, 12, 88, 88, 0, 0, 50, 59) end
-        if state == 2 then pre_set(7, 7, 50, 50, 0, 0, 55, 59) end
-        if state == 3 then pre_set(7, 7, 73, 73, 0, 0, 59, 59) end
-        if state == 4 then pre_set(5, 10, 70, 70, 0, 0, 55, 59)end
-        if state == 5 then pre_set(-5, 9, 59, 59, 0, 0, 55, 59)end
-        if state == 6 then pre_set(7, 12, 75, 75, 0, 0, 59, 59)end
+        --(yaw, yaw add, yaw jitter, yaw jitter add, body yaw, body yaw add, fake limit, fake limit add)
+        if state == 1 then pre_set(-15, 15, 88, 88, 50, 59, 50, 59, "Off", "Static", 4) end
+        if state == 2 then pre_set(17, 17, 50, 50, 55, 59, 55, 59, "Off", "Static", 4) end
+        if state == 3 then pre_set(17, 17, 73, 73, 59, 59, 59, 59, "Off", "Static", 4) end
+        if state == 4 then pre_set(15, 17, 70, 70, 55, 59, 55, 59, "Off", "Static", 4)end
+        if state == 5 then pre_set(-15, 19, 59, 59, 55, 59, 55, 59, "Off", "Static", 4)end
+        if state == 6 then pre_set(17, 22, 75, 75, 55, 59, 59, 59, "Off", "Static", 4)end
     end
 end
 
@@ -1536,6 +1542,8 @@ local antiaim = {
 
     Jitter_Mode = "Center",
 
+    Jitter_speed = 0,
+
     Yaw_Jitter = 0,
 
     Bodyyaw_mode = "Jitter",
@@ -1586,28 +1594,31 @@ local function antiaim_handler(cmd)
     local dormancy = (detections == "DORMANCY" or detections == "WAITING")
     local static_jitter = 0
     local static_fake_limit = 60
+
     --Handling Static Mode Anti aim
-
-
     local preset = ui_get(mlc.fakeyaw.enable) == "Preset"
     local custom = ui_get(mlc.fakeyaw.enable) == "Costum"
     local default = ui_get(mlc.fakeyaw.enable) == "Default"
 
+    
     local jitter_yaw = antiaim_yaw_jitter(vars.yaw_left, vars.yaw_right)
     local jitter_jitter = antiaim_yaw_jitter(vars.jitter_left, vars.jitter_right)
     local jitter_fake_limit = antiaim_yaw_jitter(vars.fake_limit_left, vars.fake_limit_right)
     local jitter_bodyyaw = antiaim_yaw_jitter(vars.bodyyaw_left, vars.bodyyaw_right)
     --Hnadling Jitter custom
-    local pre_yaw = antiaim_yaw_jitter(pre.yaw[1], pre.yaw[2])
-    local pre_jitter = antiaim_yaw_jitter(pre.jitter[1], pre.jitter[2])
-    local pre_fake_limit = antiaim_yaw_jitter(pre.fake_limit[1], pre.fake_limit[2])
-    local pre_bodyyaw = antiaim_yaw_jitter(pre.bodyyaw[1], pre.bodyyaw[2])
+    local pre_yaw = cache.switch and pre.yaw[1] or pre.yaw[2]
+    local pre_jitter = cache.switch and pre.jitter[1] or pre.jitter[2]
+    local pre_fake_limit = cache.switch and pre.fake_limit[1] or pre.fake_limit[2]
+    local pre_bodyyaw = cache.switch and pre.bodyyaw[1] or pre.bodyyaw[2]
+    local pre_yawoffset, pre_bodyyaw_mode = pre.yaw_offset, pre.body_yaw
     --Handling Preset Anti Aim
-    local def_yaw = antiaim_yaw_jitter(vars.default_yaw_left, vars.default_yaw_right)
-    local def_jitter_mode = vars.jitter_mode
-    local def_jitter_slider = vars.Jitter_slider
+    local def_yaw = cache.switch and vars.default_yaw_left + vars.Jitter_slider 
+                                    or vars.default_yaw_right -vars.Jitter_slider 
+    local def_jitter_mode = "Off"
+    local def_jitter_slider = cache.switch and vars.Jitter_slider or -vars.Jitter_slider
+    local def_jitter_speed = vars.frequency
     local def_bodyyaw = vars.Bodyyaw_mode
-    local def_bodyyaw_s = vars.Bodyyaw_slider
+    local def_bodyyaw_s = cache.switch and vars.Bodyyaw_slider or vars.Bodyyaw_slider_add
     local def_fakelimit = vars.fake_limit
     --Handling Jitter Mode Anti aim
 
@@ -1618,14 +1629,16 @@ local function antiaim_handler(cmd)
                     (is_jitter and (custom and jitter_yaw) or (default and def_yaw) or (preset and pre_yaw)) or 
                     ui_get(references.yaw[2])
 
-    antiaim.Jitter_Mode = (is_legit_run and legit_off) or (is_jitter and (default and def_jitter_mode)) or "Center"
+    antiaim.Jitter_Mode = (is_legit_run and legit_off) or (is_jitter and (default and def_jitter_mode) or (preset and pre_yawoffset)) 
 
     antiaim.Yaw_Jitter = (manual_static and 0) or (is_static and static_jitter) or 
                         (is_jitter and (preset and pre_jitter) or (custom and jitter_jitter) or (default and def_jitter_slider))
-                        or ui_get(references.jitter[2]) 
+                        or ui_get(references.jitter[2])
+
+    antiaim.Jitter_speed = (default and def_jitter_speed)
 
     antiaim.Bodyyaw_mode = (manual_run and manual_byaw) or (is_static and "Static") or 
-                            (is_jitter and (custom and "Jitter") or (default and def_bodyyaw) or (preset and "Jitter"))
+                            (is_jitter and (custom and "Jitter") or (default and def_bodyyaw) or (preset and pre_bodyyaw_mode))
                             or ui_get(references.body_yaw[1])
 
     antiaim.Bodyyaw = (manual_static and vars.static_bodyyaw) or (is_legit_run and Legit_Bodyyaw) or (is_static and vars.static_bodyyaw) or 
@@ -1646,7 +1659,6 @@ local function antiaim_handler(cmd)
     if dormancy and not (manual_run or is_jitter) then return end
     --If its in dormancy mode and not in manual mode then dont do anything
 
-
     ui_set(references.pitch, antiaim.Pitch)
     ui_set(references.yaw_base, antiaim.Yaw_base)
     ui_set(references.yaw[1], antiaim.Yaw_mode)
@@ -1655,6 +1667,7 @@ local function antiaim_handler(cmd)
     ui_set(references.jitter[2], antiaim.Yaw_Jitter)
     ui_set(references.body_yaw[1], antiaim.Bodyyaw_mode)
     ui_set(references.body_yaw[2], antiaim.Bodyyaw)
+    antiaim_slow_jitter((cache.jitter_increment % 3 == 0 and 2 or 1) + cmd.chokedcommands, antiaim.Jitter_speed)
     --ui_set(references.fake_limit, antiaim.Fake_Limit)
 
 end
