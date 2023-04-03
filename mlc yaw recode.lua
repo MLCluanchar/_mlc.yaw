@@ -652,9 +652,7 @@ local function export_config()
             settings[value][k] = ui_get(v)
         end
     end
-
     clipboard.set(json.stringify(settings))
-
 end
 
 local function import_config()
@@ -669,7 +667,33 @@ local function import_config()
             end
         end
     end
+end
 
+local function export_config_aa()
+    local settings = {}
+    local clipboard = require("gamesense/clipboard")
+    local base64 = require("gamesense/base64")
+    for key, value in pairs(AA_S2) do
+        settings[tostring(value)] = {}
+        for k, v in pairs(Antiaim_d[key]) do
+            settings[value][k] = ui_get(v)
+        end
+    end
+    clipboard.set(json.stringify(settings))
+end
+
+local function import_config_aa()
+    local clipboard = require("gamesense/clipboard")
+    local base64 = require("gamesense/base64")
+    local settings = json.parse(clipboard.get())
+    for key, value in pairs(AA_S2) do
+        for k, v in pairs(Antiaim_d[key]) do
+            local current = settings[value][k]
+            if (current ~= nil) then
+                ui_set(v, current)
+            end
+        end
+    end
 end
 ---Export/Import Configs
 
@@ -840,8 +864,10 @@ local mlc = {
         hide_menu = ui_new_checkbox( TAB[1], TAB[2], "Hide Preset Panel", false),
     
         config_export = ui_new_button( TAB[1], TAB[2], "Export Preset", export_config),
-        config_import = ui_new_button( TAB[1], TAB[2], "Import Preset", import_config)
+        config_import = ui_new_button( TAB[1], TAB[2], "Import Preset", import_config),
 
+        config_export_aa = ui_new_button(TAB[1], TAB[2], "Export Preset", export_config_aa),
+        config_import_aa = ui_new_button(TAB[1], TAB[2], "Import Preset", import_config_aa)
     },
 
     manual = {
@@ -995,6 +1021,10 @@ local function handle_function_menu()
 
     ui_set_visible(mlc.fakeyaw.config_import, custom and not is_hiding)
     ui_set_visible(mlc.fakeyaw.config_export, custom and not is_hiding)
+
+    ui_set_visible(mlc.fakeyaw.config_export_aa, default and not is_hiding)
+    ui_set_visible(mlc.fakeyaw.config_import_aa, default and not is_hiding)
+
     for i=1, #AA_S do
         local set_visible = ui_get(mlc.fakeyaw.custom_menu) == AA_S[i]
         local visible = custom and set_visible and not is_hiding
@@ -1258,6 +1288,7 @@ local function fake_yaw(cmd)
         vars.frequency = ui_get(Antiaim_d[state].yaw_jitter_speed)
         vars.Bodyyaw_mode = ui_get(Antiaim_d[state].body_yaw)
         vars.Bodyyaw_slider = ui_get(Antiaim_d[state].bodyyaw_slider)
+        vars.Bodyyaw_slider_add = ui_get(Antiaim_d[state].bodyyaw_slider_add)
     end
 
     if preset then
